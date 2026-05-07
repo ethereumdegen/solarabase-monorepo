@@ -1,6 +1,6 @@
 use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::Deserialize;
 
@@ -12,11 +12,13 @@ use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
 /// GET /auth/google — redirect to Google consent screen with CSRF state
-pub async fn google_redirect(State(state): State<AppState>) -> Response {
-    let csrf_state = google_oauth::generate_oauth_state();
-    let url = google_oauth::google_auth_url(&state.config, &csrf_state);
+pub async fn google_redirect(State(state): State<AppState>) -> Result<Response, AppError> {
+    let oauth = state.config.google_oauth.as_ref()
+        .ok_or_else(|| AppError::BadRequest("Google OAuth not configured".into()))?;
 
-    // Set state in a short-lived cookie for validation on callback
+    let csrf_state = google_oauth::generate_oauth_state();
+    let url = google_oauth::google_auth_url(oauth, &csrf_state);
+
     let state_cookie = format!(
         "sb_oauth_state={csrf_state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax"
     );
@@ -25,7 +27,7 @@ pub async fn google_redirect(State(state): State<AppState>) -> Response {
     headers.insert("set-cookie", state_cookie.parse().unwrap());
     headers.insert("location", url.parse().unwrap());
 
-    (StatusCode::FOUND, headers).into_response()
+    Ok((StatusCode::FOUND, headers).into_response())
 }
 
 #[derive(Deserialize)]
@@ -40,6 +42,9 @@ pub async fn google_callback(
     headers: HeaderMap,
     Query(params): Query<GoogleCallback>,
 ) -> Result<Response, AppError> {
+    let oauth = state.config.google_oauth.as_ref()
+        .ok_or_else(|| AppError::BadRequest("Google OAuth not configured".into()))?;
+
     // Validate CSRF state
     let expected_state = extract_cookie(&headers, "sb_oauth_state");
     let received_state = params.state.as_deref().unwrap_or("");
@@ -47,7 +52,7 @@ pub async fn google_callback(
         return Err(AppError::BadRequest("invalid oauth state".into()));
     }
 
-    let token_resp = google_oauth::exchange_code(&state.config, &params.code)
+    let token_resp = google_oauth::exchange_code(oauth, &params.code)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -88,16 +93,69 @@ pub async fn google_callback(
     let session_cookie = format!(
         "sb_session={jwt}; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax{secure_flag}"
     );
-    // Clear the oauth state cookie
     let clear_state_cookie = "sb_oauth_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
 
     let mut resp_headers = HeaderMap::new();
-    // Multiple Set-Cookie headers
     resp_headers.append("set-cookie", session_cookie.parse().unwrap());
     resp_headers.append("set-cookie", clear_state_cookie.parse().unwrap());
     resp_headers.insert("location", "/dashboard".parse().unwrap());
 
     Ok((StatusCode::FOUND, resp_headers).into_response())
+}
+
+#[derive(Deserialize)]
+pub struct DevLoginRequest {
+    pub email: String,
+    pub name: Option<String>,
+}
+
+/// POST /auth/dev-login — development-only login (only works when Google OAuth is NOT configured)
+pub async fn dev_login(
+    State(state): State<AppState>,
+    Json(req): Json<DevLoginRequest>,
+) -> Result<Response, AppError> {
+    if state.config.google_oauth.is_some() {
+        return Err(AppError::BadRequest("dev login disabled when Google OAuth is configured".into()));
+    }
+
+    let name = req.name.unwrap_or_else(|| req.email.split('@').next().unwrap_or("user").to_string());
+    let google_id = format!("dev_{}", sha2_hex(&req.email));
+
+    let user = db::users::upsert_from_google(
+        &state.db,
+        &google_id,
+        &req.email,
+        &name,
+        None,
+    )
+    .await?;
+
+    // Ensure user has at least one workspace
+    let workspaces = db::workspaces::list_for_user(&state.db, user.id).await?;
+    if workspaces.is_empty() {
+        let slug = user.email.split('@').next().unwrap_or("workspace").to_string();
+        let ws = db::workspaces::create(&state.db, &format!("{}'s Workspace", user.name), &slug, user.id).await?;
+        db::subscriptions::get_or_create_free(&state.db, ws.id).await?;
+    }
+
+    let jwt = sign_jwt(user.id, &user.email, &state.config.jwt_secret)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let session_cookie = format!(
+        "sb_session={jwt}; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax"
+    );
+
+    let mut headers = HeaderMap::new();
+    headers.insert("set-cookie", session_cookie.parse().unwrap());
+
+    tracing::info!(user_id = %user.id, email = %user.email, "dev login");
+
+    Ok((StatusCode::OK, headers, Json(serde_json::json!(user))).into_response())
+}
+
+fn sha2_hex(s: &str) -> String {
+    use sha2::{Sha256, Digest};
+    hex::encode(Sha256::digest(s.as_bytes()))
 }
 
 /// POST /auth/logout — clear cookie

@@ -29,6 +29,7 @@ pub async fn get_billing(
         "usage": {
             "queries": query_usage,
         },
+        "stripe_enabled": state.config.stripe.is_some(),
     })))
 }
 
@@ -44,6 +45,9 @@ pub async fn create_checkout(
     Path(ws_id): Path<Uuid>,
     Json(req): Json<CheckoutRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let stripe = state.config.stripe.as_ref()
+        .ok_or_else(|| AppError::BadRequest("Stripe billing not configured".into()))?;
+
     let ws = db::workspaces::get_by_id(&state.db, ws_id)
         .await?
         .ok_or_else(|| AppError::NotFound("workspace not found".into()))?;
@@ -52,13 +56,13 @@ pub async fn create_checkout(
     }
 
     let price_id = match req.plan.as_str() {
-        "pro" => &state.config.stripe_pro_price_id,
-        "team" => &state.config.stripe_team_price_id,
+        "pro" => &stripe.pro_price_id,
+        "team" => &stripe.team_price_id,
         _ => return Err(AppError::BadRequest("invalid plan".into())),
     };
 
     let url = stripe_svc::create_checkout_session(
-        &state.config,
+        stripe,
         price_id,
         &user.email,
         &ws_id.to_string(),
@@ -75,6 +79,9 @@ pub async fn create_portal(
     State(state): State<AppState>,
     Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let stripe = state.config.stripe.as_ref()
+        .ok_or_else(|| AppError::BadRequest("Stripe billing not configured".into()))?;
+
     let ws = db::workspaces::get_by_id(&state.db, ws_id)
         .await?
         .ok_or_else(|| AppError::NotFound("workspace not found".into()))?;
@@ -90,7 +97,7 @@ pub async fn create_portal(
         .stripe_customer_id
         .ok_or_else(|| AppError::BadRequest("no stripe customer".into()))?;
 
-    let url = stripe_svc::create_portal_session(&state.config, &customer_id).await?;
+    let url = stripe_svc::create_portal_session(stripe, &customer_id).await?;
 
     Ok(Json(serde_json::json!({ "url": url })))
 }

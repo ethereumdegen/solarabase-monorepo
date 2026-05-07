@@ -65,7 +65,8 @@ async fn index_document(
     llm: &LlmClient,
     doc: &crate::models::document::Document,
 ) -> Result<(), BoxErr> {
-    let bytes = s3::download_bytes(&state.bucket, &doc.s3_key).await?;
+    let bucket = state.require_bucket().map_err(|e| -> BoxErr { e.to_string().into() })?;
+    let bytes = s3::download_bytes(bucket, &doc.s3_key).await?;
     let text = String::from_utf8_lossy(&bytes).to_string();
 
     let pages = split_into_pages(&text);

@@ -103,9 +103,11 @@ pub async fn delete(
 
     // Delete all S3 objects for this KB's documents
     let docs = db::documents::list_for_kb(&state.db, kb_access.kb.id).await?;
-    for doc in &docs {
-        if let Err(e) = s3::delete_object(&state.bucket, &doc.s3_key).await {
-            tracing::warn!(doc_id = %doc.id, error = %e, "failed to delete S3 object during KB deletion");
+    if let Some(bucket) = &state.bucket {
+        for doc in &docs {
+            if let Err(e) = s3::delete_object(bucket, &doc.s3_key).await {
+                tracing::warn!(doc_id = %doc.id, error = %e, "failed to delete S3 object during KB deletion");
+            }
         }
     }
 

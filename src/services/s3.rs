@@ -2,35 +2,35 @@ use s3::bucket::Bucket;
 use s3::creds::Credentials;
 use s3::Region;
 
-use crate::config::AppConfig;
+use crate::config::S3Config;
 use crate::error::{AppError, AppResult};
 
-pub fn create_bucket(config: &AppConfig) -> AppResult<Box<Bucket>> {
-    let region = if let Some(ref endpoint) = config.s3_endpoint {
+pub fn create_bucket(config: &S3Config) -> AppResult<Box<Bucket>> {
+    let region = if let Some(ref endpoint) = config.endpoint {
         Region::Custom {
-            region: config.s3_region.clone(),
+            region: config.region.clone(),
             endpoint: endpoint.clone(),
         }
     } else {
         Region::Custom {
-            region: config.s3_region.clone(),
+            region: config.region.clone(),
             endpoint: format!(
                 "https://{}.digitaloceanspaces.com",
-                config.s3_region
+                config.region
             ),
         }
     };
 
     let credentials = Credentials::new(
-        Some(&config.s3_access_key),
-        Some(&config.s3_secret_key),
+        Some(&config.access_key),
+        Some(&config.secret_key),
         None,
         None,
         None,
     )
     .map_err(|e| AppError::S3(e.to_string()))?;
 
-    let bucket = Bucket::new(&config.s3_bucket, region, credentials)
+    let bucket = Bucket::new(&config.bucket, region, credentials)
         .map_err(|e| AppError::S3(e.to_string()))?
         .with_path_style();
 

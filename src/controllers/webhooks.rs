@@ -13,12 +13,15 @@ pub async fn stripe_webhook(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> AppResult<StatusCode> {
+    let stripe = state.config.stripe.as_ref()
+        .ok_or_else(|| AppError::BadRequest("Stripe not configured".into()))?;
+
     let sig = headers
         .get("stripe-signature")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    stripe_svc::verify_webhook_signature(&body, sig, &state.config.stripe_webhook_secret)?;
+    stripe_svc::verify_webhook_signature(&body, sig, &stripe.webhook_secret)?;
 
     let event: serde_json::Value = serde_json::from_slice(&body)
         .map_err(|e| AppError::BadRequest(e.to_string()))?;
@@ -73,4 +76,3 @@ pub async fn stripe_webhook(
 
     Ok(StatusCode::OK)
 }
-

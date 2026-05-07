@@ -48,24 +48,39 @@ async fn main() {
 
     tracing::info!("migrations complete");
 
-    // S3
-    let bucket = services::s3::create_bucket(&config).expect("failed to create S3 bucket client");
+    // S3 (optional)
+    let bucket = if let Some(ref s3_config) = config.s3 {
+        match services::s3::create_bucket(s3_config) {
+            Ok(b) => {
+                tracing::info!("S3 bucket connected");
+                Some(Arc::new(b))
+            }
+            Err(e) => {
+                tracing::error!("S3 init failed: {e} — document upload disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // RAG Cache (per-KB agent factory)
     let rag_cache = RagCache::new(db.clone(), config.openai_api_key.clone());
 
     let state = AppState {
         db: db.clone(),
-        bucket: Arc::new(bucket),
+        bucket,
         config: Arc::new(config.clone()),
         rag_cache: Arc::new(rag_cache),
     };
 
-    // Background indexer
-    let indexer_state = state.clone();
-    tokio::spawn(async move {
-        services::indexer::run_indexer_loop(indexer_state).await;
-    });
+    // Background indexer (only if S3 configured)
+    if state.bucket.is_some() {
+        let indexer_state = state.clone();
+        tokio::spawn(async move {
+            services::indexer::run_indexer_loop(indexer_state).await;
+        });
+    }
 
     // Background cache eviction
     let evict_state = state.clone();
@@ -82,7 +97,8 @@ async fn main() {
         .route(
             "/auth/google/callback",
             get(controllers::auth::google_callback),
-        );
+        )
+        .route("/auth/dev-login", post(controllers::auth::dev_login));
 
     let api_routes = Router::new()
         // Health

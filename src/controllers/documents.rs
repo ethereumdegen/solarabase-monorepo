@@ -17,6 +17,8 @@ pub async fn upload(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<Value>)> {
+    let bucket = state.require_bucket()?;
+
     let mut file_data: Option<(String, String, Vec<u8>)> = None;
 
     while let Some(field) = multipart
@@ -53,7 +55,7 @@ pub async fn upload(
 
     let s3_key = format!("{}/documents/{}/{}", kb_access.kb.id, Uuid::new_v4(), filename);
 
-    s3::upload_bytes(&state.bucket, &s3_key, &bytes, &content_type).await?;
+    s3::upload_bytes(bucket, &s3_key, &bytes, &content_type).await?;
 
     let doc = db::documents::insert(
         &state.db,
@@ -110,8 +112,10 @@ pub async fn delete(
 
     // Delete DB first (cascades page_indexes etc), then S3
     db::documents::delete(&state.db, id).await?;
-    if let Err(e) = s3::delete_object(&state.bucket, &doc.s3_key).await {
-        tracing::warn!(doc_id = %id, error = %e, "failed to delete S3 object after DB delete");
+    if let Some(bucket) = &state.bucket {
+        if let Err(e) = s3::delete_object(bucket, &doc.s3_key).await {
+            tracing::warn!(doc_id = %id, error = %e, "failed to delete S3 object after DB delete");
+        }
     }
 
     tracing::info!(doc_id = %id, kb_id = %kb_access.kb.id, "document deleted");

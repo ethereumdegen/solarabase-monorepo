@@ -2,8 +2,6 @@ use rig::client::CompletionClient;
 use rig::completion::{Chat, Message as RigMessage};
 use rig::providers::openai;
 
-use crate::config::AppConfig;
-
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct LlmClient {
@@ -12,15 +10,6 @@ pub struct LlmClient {
 }
 
 impl LlmClient {
-    pub fn new(config: &AppConfig) -> Self {
-        let client =
-            openai::Client::new(&config.openai_api_key).expect("failed to create OpenAI client");
-        Self {
-            client,
-            model_name: config.openai_model.clone(),
-        }
-    }
-
     pub fn new_with_model(api_key: &str, model: &str) -> Self {
         let client =
             openai::Client::new(api_key).expect("failed to create OpenAI client");

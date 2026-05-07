@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::config::AppConfig;
+use crate::config::GoogleOAuthConfig;
 
 #[derive(Debug, Deserialize)]
 pub struct GoogleTokenResponse {
@@ -15,11 +15,11 @@ pub struct GoogleUserInfo {
     pub picture: Option<String>,
 }
 
-pub fn google_auth_url(config: &AppConfig, state: &str) -> String {
+pub fn google_auth_url(config: &GoogleOAuthConfig, state: &str) -> String {
     format!(
         "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=consent&state={}",
-        config.google_client_id,
-        urlencoding(&config.google_redirect_uri),
+        config.client_id,
+        urlencoding(&config.redirect_uri),
         state,
     )
 }
@@ -33,7 +33,7 @@ fn urlencoding(s: &str) -> String {
 }
 
 pub async fn exchange_code(
-    config: &AppConfig,
+    config: &GoogleOAuthConfig,
     code: &str,
 ) -> Result<GoogleTokenResponse, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::new();
@@ -41,10 +41,10 @@ pub async fn exchange_code(
         .post("https://oauth2.googleapis.com/token")
         .form(&[
             ("code", code),
-            ("client_id", &config.google_client_id),
-            ("client_secret", &config.google_client_secret),
-            ("redirect_uri", &config.google_redirect_uri),
-            ("grant_type", "authorization_code"),
+            ("client_id", &config.client_id),
+            ("client_secret", &config.client_secret),
+            ("redirect_uri", &config.redirect_uri),
+            ("grant_type", &"authorization_code".to_string()),
         ])
         .send()
         .await?;

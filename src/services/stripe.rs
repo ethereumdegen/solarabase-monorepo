@@ -1,7 +1,7 @@
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
-use crate::config::AppConfig;
+use crate::config::StripeConfig;
 use crate::error::{AppError, AppResult};
 
 type HmacSha256 = Hmac<Sha256>;
@@ -54,24 +54,25 @@ pub fn verify_webhook_signature(
 }
 
 pub async fn create_checkout_session(
-    config: &AppConfig,
+    config: &StripeConfig,
     price_id: &str,
     customer_email: &str,
     workspace_id: &str,
     plan: &str,
 ) -> AppResult<String> {
     let client = reqwest::Client::new();
+    let public_url = std::env::var("PUBLIC_URL").unwrap_or_else(|_| "http://localhost:3000".into());
     let resp = client
         .post("https://api.stripe.com/v1/checkout/sessions")
-        .basic_auth(&config.stripe_secret_key, None::<&str>)
+        .basic_auth(&config.secret_key, None::<&str>)
         .form(&[
             ("mode", "subscription"),
             ("payment_method_types[]", "card"),
             ("line_items[0][price]", price_id),
             ("line_items[0][quantity]", "1"),
             ("customer_email", customer_email),
-            ("success_url", &format!("{}/dashboard?billing=success", config.public_url)),
-            ("cancel_url", &format!("{}/dashboard?billing=cancel", config.public_url)),
+            ("success_url", &format!("{public_url}/dashboard?billing=success")),
+            ("cancel_url", &format!("{public_url}/dashboard?billing=cancel")),
             ("metadata[workspace_id]", workspace_id),
             ("metadata[plan]", plan),
         ])
@@ -91,16 +92,17 @@ pub async fn create_checkout_session(
 }
 
 pub async fn create_portal_session(
-    config: &AppConfig,
+    config: &StripeConfig,
     customer_id: &str,
 ) -> AppResult<String> {
     let client = reqwest::Client::new();
+    let public_url = std::env::var("PUBLIC_URL").unwrap_or_else(|_| "http://localhost:3000".into());
     let resp = client
         .post("https://api.stripe.com/v1/billing_portal/sessions")
-        .basic_auth(&config.stripe_secret_key, None::<&str>)
+        .basic_auth(&config.secret_key, None::<&str>)
         .form(&[
             ("customer", customer_id),
-            ("return_url", &format!("{}/dashboard", config.public_url)),
+            ("return_url", &format!("{public_url}/dashboard")),
         ])
         .send()
         .await

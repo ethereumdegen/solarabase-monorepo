@@ -1,0 +1,140 @@
+import type {
+  User,
+  Workspace,
+  Knowledgebase,
+  Document,
+  QueryResponse,
+  ApiKeyInfo,
+  ApiKeyCreated,
+  BillingInfo,
+  MemberWithUser,
+  ChatSession,
+} from './types';
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { credentials: 'include', ...init });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || res.statusText);
+  }
+  return res.json();
+}
+
+// Auth
+export const getMe = () => fetchJson<User>('/api/auth/me');
+export const logout = () => fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+
+// Workspaces
+export const listWorkspaces = () => fetchJson<Workspace[]>('/api/workspaces');
+export const createWorkspace = (data: { name: string; slug: string }) =>
+  fetchJson<Workspace>('/api/workspaces', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+export const getWorkspace = (id: string) => fetchJson<Workspace>(`/api/workspaces/${id}`);
+export const updateWorkspace = (id: string, data: { name: string }) =>
+  fetchJson<Workspace>(`/api/workspaces/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+export const deleteWorkspace = (id: string) =>
+  fetch(`/api/workspaces/${id}`, { method: 'DELETE', credentials: 'include' });
+export const listMembers = (wsId: string) =>
+  fetchJson<MemberWithUser[]>(`/api/workspaces/${wsId}/members`);
+export const inviteMember = (wsId: string, email: string, role?: string) =>
+  fetchJson<unknown>(`/api/workspaces/${wsId}/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, role }),
+  });
+export const removeMember = (wsId: string, userId: string) =>
+  fetch(`/api/workspaces/${wsId}/members/${userId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+// Knowledgebases
+export const listKbs = (wsId: string) =>
+  fetchJson<Knowledgebase[]>(`/api/workspaces/${wsId}/kbs`);
+export const createKb = (wsId: string, data: { name: string; slug: string; description?: string }) =>
+  fetchJson<Knowledgebase>(`/api/workspaces/${wsId}/kbs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+// KB operations
+export const getKbSettings = (kbId: string) =>
+  fetchJson<Knowledgebase>(`/api/kb/${kbId}/settings`);
+export const updateKbSettings = (kbId: string, data: Partial<Knowledgebase>) =>
+  fetchJson<Knowledgebase>(`/api/kb/${kbId}/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+// Documents
+export const listDocuments = (kbId: string) =>
+  fetchJson<Document[]>(`/api/kb/${kbId}/documents`);
+export const uploadDocument = (kbId: string, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return fetchJson<Document>(`/api/kb/${kbId}/documents`, {
+    method: 'POST',
+    body: form,
+  });
+};
+export const deleteDocument = (kbId: string, docId: string) =>
+  fetch(`/api/kb/${kbId}/documents/${docId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+// Query
+export const queryKb = (kbId: string, question: string, sessionId?: string) =>
+  fetchJson<QueryResponse>(`/api/kb/${kbId}/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, session_id: sessionId }),
+  });
+
+// API Keys
+export const listApiKeys = (kbId: string) =>
+  fetchJson<ApiKeyInfo[]>(`/api/kb/${kbId}/api-keys`);
+export const createApiKey = (kbId: string, name: string) =>
+  fetchJson<ApiKeyCreated>(`/api/kb/${kbId}/api-keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+export const revokeApiKey = (kbId: string, keyId: string) =>
+  fetch(`/api/kb/${kbId}/api-keys/${keyId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+
+// Billing
+export const getBilling = (wsId: string) =>
+  fetchJson<BillingInfo>(`/api/workspaces/${wsId}/billing`);
+export const createCheckout = (wsId: string, plan: string) =>
+  fetchJson<{ url: string }>(`/api/workspaces/${wsId}/billing/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plan }),
+  });
+export const createPortal = (wsId: string) =>
+  fetchJson<{ url: string }>(`/api/workspaces/${wsId}/billing/portal`, {
+    method: 'POST',
+  });
+
+// Chat sessions
+export const listSessions = (kbId: string) =>
+  fetchJson<ChatSession[]>(`/api/kb/${kbId}/sessions`);
+
+// Invitations
+export const acceptInvite = (token: string) =>
+  fetchJson<Workspace>(`/api/invitations/accept?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+  });

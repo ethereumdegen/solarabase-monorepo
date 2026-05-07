@@ -1,0 +1,10 @@
+/target
+.env
+frontend/node_modules
+frontend/dist
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log
+.sqlx/

@@ -1,0 +1,9 @@
+target/
+.env
+.git
+frontend/node_modules
+frontend/dist
+*.swp
+*.swo
+.DS_Store
+README.md

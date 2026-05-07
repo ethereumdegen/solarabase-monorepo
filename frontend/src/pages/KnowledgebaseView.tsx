@@ -35,20 +35,22 @@ export function KnowledgebaseView() {
   return (
     <Layout>
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link to="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 mb-1 inline-block">&larr; Dashboard</Link>
-            <h1 className="text-2xl font-bold">{kb.name}</h1>
-            {kb.description && (
-              <p className="text-sm text-gray-400 mt-1">{kb.description}</p>
-            )}
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Link to="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 mb-1 inline-block">&larr; Dashboard</Link>
+              <h1 className="text-2xl font-bold">{kb.name}</h1>
+              {kb.description && (
+                <p className="text-sm text-gray-400 mt-1">{kb.description}</p>
+              )}
+            </div>
           </div>
-          <nav className="flex gap-1">
+          <nav className="flex gap-1 overflow-x-auto">
             {(['query', 'documents', 'wiki', 'settings'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize ${
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize whitespace-nowrap ${
                   tab === t
                     ? 'bg-gray-900 text-white'
                     : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'

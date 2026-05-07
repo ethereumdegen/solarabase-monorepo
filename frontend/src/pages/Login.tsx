@@ -1,11 +1,38 @@
+import { useState } from 'react';
 import { useAuth } from '../auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 export function Login() {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
+  const navigate = useNavigate();
+  const [devEmail, setDevEmail] = useState('');
+  const [devError, setDevError] = useState('');
+  const [showDev, setShowDev] = useState(false);
 
   if (loading) return null;
   if (user) return <Navigate to="/dashboard" replace />;
+
+  const handleDevLogin = async () => {
+    if (!devEmail.trim()) return;
+    setDevError('');
+    try {
+      const res = await fetch('/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: devEmail.trim() }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        setDevError(text || 'Login failed');
+        return;
+      }
+      await refresh();
+      navigate('/dashboard');
+    } catch (e: any) {
+      setDevError(e.message);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f0f0f3] flex items-center justify-center">
@@ -24,6 +51,37 @@ export function Login() {
           </svg>
           Sign in with Google
         </a>
+
+        <div className="mt-6">
+          {!showDev ? (
+            <button
+              onClick={() => setShowDev(true)}
+              className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
+            >
+              Dev login
+            </button>
+          ) : (
+            <div className="border-t border-gray-100 pt-4 mt-2">
+              <p className="text-xs text-gray-400 mb-3">Dev mode (no OAuth required)</p>
+              <input
+                type="email"
+                value={devEmail}
+                onChange={(e) => setDevEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleDevLogin()}
+                placeholder="Email address"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                autoFocus
+              />
+              {devError && <p className="text-xs text-red-500 mb-2">{devError}</p>}
+              <button
+                onClick={handleDevLogin}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                Sign in with email
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

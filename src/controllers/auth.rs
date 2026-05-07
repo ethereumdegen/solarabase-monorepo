@@ -173,6 +173,14 @@ pub async fn me(AuthUser(user): AuthUser) -> AppResult<Json<serde_json::Value>> 
     Ok(Json(serde_json::json!(user)))
 }
 
+/// GET /api/auth/providers — which auth methods are available (public)
+pub async fn providers(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "google": state.config.google_oauth.is_some(),
+        "dev_login": state.config.google_oauth.is_none(),
+    }))
+}
+
 fn extract_cookie(headers: &HeaderMap, name: &str) -> String {
     headers
         .get("cookie")

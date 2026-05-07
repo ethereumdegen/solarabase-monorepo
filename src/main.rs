@@ -105,6 +105,7 @@ async fn main() {
         .route("/api/health", get(|| async { "ok" }))
         // Auth
         .route("/api/auth/me", get(controllers::auth::me))
+        .route("/api/auth/providers", get(controllers::auth::providers))
         .route("/auth/logout", post(controllers::auth::logout))
         // Workspaces
         .route("/api/workspaces", get(controllers::workspaces::list))

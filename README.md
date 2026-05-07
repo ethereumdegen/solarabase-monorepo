@@ -16,7 +16,7 @@ Multi-tenant Knowledgebase-as-a-Service. Upload documents, auto-index with PageI
 
 ### Prerequisites
 
-- Rust 1.75+
+- Rust 1.91+ (edition 2024)
 - Node.js 20+
 - PostgreSQL (or Neon DB)
 - S3-compatible bucket (DigitalOcean Spaces, MinIO, etc.)

@@ -59,11 +59,11 @@ export function DocumentList({ kbId }: { kbId: string }) {
   useEffect(() => { load(); }, [kbId]);
 
   // Polling: fast when docs are active, slow otherwise
+  const hasActive = docs.some((d) => d.status === 'uploaded' || d.status === 'processing');
   useEffect(() => {
-    const hasActive = docs.some((d) => d.status === 'uploaded' || d.status === 'processing');
     const interval = setInterval(load, hasActive ? 3000 : 15000);
     return () => clearInterval(interval);
-  }, [kbId, docs.length, docs.some((d) => d.status === 'uploaded' || d.status === 'processing')]);
+  }, [kbId, hasActive]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this document?')) return;

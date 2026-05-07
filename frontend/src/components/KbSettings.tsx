@@ -16,11 +16,13 @@ export function KbSettings({
   const [model, setModel] = useState(kb.model);
   const [accentColor, setAccentColor] = useState(kb.accent_color);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // API Keys
   const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   useEffect(() => {
     listApiKeys(kb.id).then(setApiKeys).catch(() => {});
@@ -28,11 +30,14 @@ export function KbSettings({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const updated = await updateKbSettings(kb.id, {
         name, description, system_prompt: systemPrompt, model, accent_color: accentColor,
       });
       onUpdated(updated);
+    } catch (e: any) {
+      setSaveError(e.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
@@ -40,16 +45,25 @@ export function KbSettings({
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
-    const result = await createApiKey(kb.id, newKeyName.trim());
-    setCreatedKey(result.key);
-    setNewKeyName('');
-    listApiKeys(kb.id).then(setApiKeys);
+    setKeyError(null);
+    try {
+      const result = await createApiKey(kb.id, newKeyName.trim());
+      setCreatedKey(result.key);
+      setNewKeyName('');
+      listApiKeys(kb.id).then(setApiKeys);
+    } catch (e: any) {
+      setKeyError(e.message || 'Failed to create key');
+    }
   };
 
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Revoke this API key?')) return;
-    await revokeApiKey(kb.id, keyId);
-    listApiKeys(kb.id).then(setApiKeys);
+    try {
+      await revokeApiKey(kb.id, keyId);
+      listApiKeys(kb.id).then(setApiKeys);
+    } catch (e: any) {
+      setKeyError(e.message || 'Failed to revoke key');
+    }
   };
 
   return (
@@ -93,6 +107,7 @@ export function KbSettings({
           </div>
         </div>
 
+        {saveError && <p className="text-xs text-red-500">{saveError}</p>}
         <button onClick={handleSave} disabled={saving}
           className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
@@ -110,6 +125,8 @@ export function KbSettings({
             <button onClick={() => setCreatedKey(null)} className="ml-3 text-xs text-green-600">Dismiss</button>
           </div>
         )}
+
+        {keyError && <p className="text-xs text-red-500 mb-3">{keyError}</p>}
 
         <div className="flex gap-2 mb-4">
           <input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}

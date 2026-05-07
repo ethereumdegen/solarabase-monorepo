@@ -35,13 +35,20 @@ export function Dashboard() {
 
   useEffect(() => { load(); }, []);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const handleCreateKb = async (wsId: string) => {
     if (!newKbName.trim()) return;
+    setCreateError(null);
     const slug = newKbName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    await createKb(wsId, { name: newKbName.trim(), slug });
-    setNewKbName('');
-    setShowCreateKb(null);
-    load();
+    try {
+      await createKb(wsId, { name: newKbName.trim(), slug });
+      setNewKbName('');
+      setShowCreateKb(null);
+      load();
+    } catch (e: any) {
+      setCreateError(e.message || 'Failed to create');
+    }
   };
 
   return (
@@ -90,6 +97,7 @@ export function Dashboard() {
                     className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-gray-900"
                     autoFocus
                   />
+                  {createError && <p className="text-xs text-red-500 mb-2">{createError}</p>}
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleCreateKb(ws.id)}
@@ -98,7 +106,7 @@ export function Dashboard() {
                       Create
                     </button>
                     <button
-                      onClick={() => { setShowCreateKb(null); setNewKbName(''); }}
+                      onClick={() => { setShowCreateKb(null); setNewKbName(''); setCreateError(null); }}
                       className="px-3 py-1.5 text-gray-400 text-sm"
                     >
                       Cancel

@@ -98,6 +98,16 @@ pub async fn find_pending_global(pool: &PgPool) -> AppResult<Vec<Document>> {
     Ok(docs)
 }
 
+/// Reset documents stuck in "processing" for over 10 minutes back to "uploaded".
+pub async fn reset_stuck_processing(pool: &PgPool) -> AppResult<u64> {
+    let result = sqlx::query(
+        "UPDATE documents SET status = 'uploaded', error_msg = NULL, updated_at = now() WHERE status = 'processing' AND updated_at < now() - interval '10 minutes'",
+    )
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected())
+}
+
 pub async fn count_for_kb(pool: &PgPool, kb_id: Uuid) -> AppResult<i64> {
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM documents WHERE kb_id = $1",

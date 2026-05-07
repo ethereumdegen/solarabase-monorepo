@@ -10,19 +10,30 @@ const PLAN_LIMITS: Record<string, { kbs: string; docs: string; queries: string; 
 
 export function BillingCard({ wsId }: { wsId: string }) {
   const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getBilling(wsId).then(setBilling).catch(() => {});
   }, [wsId]);
 
   const handleUpgrade = async (plan: string) => {
-    const { url } = await createCheckout(wsId, plan);
-    window.location.href = url;
+    setError(null);
+    try {
+      const { url } = await createCheckout(wsId, plan);
+      window.location.href = url;
+    } catch (e: any) {
+      setError(e.message || 'Failed to start checkout');
+    }
   };
 
   const handlePortal = async () => {
-    const { url } = await createPortal(wsId);
-    window.location.href = url;
+    setError(null);
+    try {
+      const { url } = await createPortal(wsId);
+      window.location.href = url;
+    } catch (e: any) {
+      setError(e.message || 'Failed to open billing portal');
+    }
   };
 
   if (!billing) return null;
@@ -53,6 +64,8 @@ export function BillingCard({ wsId }: { wsId: string }) {
         <div><span className="text-gray-400 text-xs block">Queries</span>{limits.queries}</div>
         <div><span className="text-gray-400 text-xs block">Members</span>{limits.members}</div>
       </div>
+
+      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
       <div className="flex gap-3">
         {plan === 'free' && (

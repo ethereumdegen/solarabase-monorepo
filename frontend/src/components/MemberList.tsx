@@ -7,6 +7,7 @@ export function MemberList({ wsId }: { wsId: string }) {
   const { user } = useAuth();
   const [members, setMembers] = useState<MemberWithUser[]>([]);
   const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const load = () => {
     listMembers(wsId).then(setMembers).catch(() => {});
@@ -16,22 +17,31 @@ export function MemberList({ wsId }: { wsId: string }) {
 
   const handleInvite = async () => {
     if (!email.trim()) return;
-    await inviteMember(wsId, email.trim());
-    setEmail('');
-    load();
+    setError(null);
+    try {
+      await inviteMember(wsId, email.trim());
+      setEmail('');
+      load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to invite');
+    }
   };
 
   const handleRemove = async (userId: string) => {
     if (!confirm('Remove this member?')) return;
-    await removeMember(wsId, userId);
-    load();
+    try {
+      await removeMember(wsId, userId);
+      load();
+    } catch (e: any) {
+      setError(e.message || 'Failed to remove');
+    }
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
       <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Members</h2>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-2">
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -44,6 +54,7 @@ export function MemberList({ wsId }: { wsId: string }) {
           Invite
         </button>
       </div>
+      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
       <div className="space-y-2">
         {members.map((m) => (

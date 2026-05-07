@@ -14,6 +14,13 @@ type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 pub async fn run_indexer_loop(state: AppState) {
     tracing::info!("indexer worker started");
 
+    // Recover documents stuck in "processing" from a previous crash
+    match recover_stuck_documents(&state).await {
+        Ok(count) if count > 0 => tracing::info!(count, "recovered stuck documents"),
+        Err(e) => tracing::error!("failed to recover stuck documents: {e}"),
+        _ => {}
+    }
+
     loop {
         match process_pending(&state).await {
             Ok(count) => {
@@ -27,6 +34,11 @@ pub async fn run_indexer_loop(state: AppState) {
         }
         sleep(Duration::from_secs(5)).await;
     }
+}
+
+async fn recover_stuck_documents(state: &AppState) -> Result<usize, BoxErr> {
+    let count = db::documents::reset_stuck_processing(&state.db).await?;
+    Ok(count as usize)
 }
 
 async fn process_pending(state: &AppState) -> Result<usize, BoxErr> {

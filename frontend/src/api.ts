@@ -12,7 +12,17 @@ import type {
 } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { credentials: 'include', ...init });
+  let res: Response;
+  try {
+    res = await fetch(url, { credentials: 'include', ...init });
+  } catch {
+    throw new Error('Network error — check your connection');
+  }
+  if (res.status === 401) {
+    // Session expired — redirect to login
+    window.location.href = '/login';
+    throw new Error('Session expired');
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || res.statusText);

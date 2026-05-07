@@ -87,6 +87,9 @@ pub async fn send_message(
         return Err(AppError::NotFound("session not found".into()));
     }
 
+    // Check limit before saving anything
+    crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.workspace_id).await?;
+
     // Save user message
     db::chat_sessions::add_message(
         &state.db,
@@ -96,9 +99,6 @@ pub async fn send_message(
         None,
     )
     .await?;
-
-    // Run query
-    crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.workspace_id).await?;
 
     let agent = state
         .rag_cache

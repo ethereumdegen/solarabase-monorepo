@@ -53,7 +53,14 @@ pub async fn upload(
     plan_limits::check_doc_limit(&state.db, kb_access.kb.workspace_id, kb_access.kb.id).await?;
     plan_limits::check_file_size(&state.db, kb_access.kb.workspace_id, size_bytes).await?;
 
-    let s3_key = format!("{}/documents/{}/{}", kb_access.kb.id, Uuid::new_v4(), filename);
+    // Sanitize filename: strip path separators to prevent traversal
+    let safe_filename: String = filename
+        .replace(['/', '\\', '\0'], "_")
+        .trim_start_matches('.')
+        .to_string();
+    let safe_filename = if safe_filename.is_empty() { "file".to_string() } else { safe_filename };
+
+    let s3_key = format!("{}/documents/{}/{}", kb_access.kb.id, Uuid::new_v4(), safe_filename);
 
     s3::upload_bytes(bucket, &s3_key, &bytes, &content_type).await?;
 

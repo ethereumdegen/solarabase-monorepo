@@ -30,7 +30,17 @@ pub async fn create(
     State(state): State<AppState>,
     Json(req): Json<CreateWorkspace>,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
-    let ws = db::workspaces::create(&state.db, &req.name, &req.slug, user.id).await?;
+    let ws = db::workspaces::create(&state.db, &req.name, &req.slug, user.id)
+        .await
+        .map_err(|e| {
+            if let AppError::Database(ref db_err) = e {
+                let msg = db_err.to_string();
+                if msg.contains("duplicate key") || msg.contains("unique constraint") {
+                    return AppError::BadRequest("workspace slug already exists".into());
+                }
+            }
+            e
+        })?;
     db::subscriptions::get_or_create_free(&state.db, ws.id).await?;
     Ok((StatusCode::CREATED, Json(serde_json::json!(ws))))
 }

@@ -8,4 +8,5 @@ pub mod query;
 pub mod retrieve;
 pub mod settings;
 pub mod webhooks;
+pub mod wiki;
 pub mod workspaces;

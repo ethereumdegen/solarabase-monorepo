@@ -1,5 +1,6 @@
 use axum::extract::{Multipart, Path, State};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
+use axum::response::IntoResponse;
 use axum::Json;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -127,4 +128,56 @@ pub async fn delete(
 
     tracing::info!(doc_id = %id, kb_id = %kb_access.kb.id, "document deleted");
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// GET /api/kb/:kb_id/documents/:id/content — proxy S3 file content
+pub async fn content(
+    kb_access: KbAccess,
+    State(state): State<AppState>,
+    Path((_kb_id, id)): Path<(Uuid, Uuid)>,
+) -> AppResult<impl IntoResponse> {
+    let bucket = state.require_bucket()?;
+    let doc = db::documents::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("document {id} not found")))?;
+    if doc.kb_id != kb_access.kb.id {
+        return Err(AppError::NotFound("document not found in this KB".into()));
+    }
+
+    let bytes = s3::download_bytes(bucket, &doc.s3_key).await?;
+
+    let content_type = doc.mime_type.clone();
+    let disposition = format!("inline; filename=\"{}\"", doc.filename.replace('"', "_"));
+
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::CONTENT_DISPOSITION, disposition),
+        ],
+        bytes,
+    ))
+}
+
+/// GET /api/kb/:kb_id/documents/:id/pages — get indexed pages for a document
+pub async fn pages(
+    kb_access: KbAccess,
+    State(state): State<AppState>,
+    Path((_kb_id, id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<Value>> {
+    let doc = db::documents::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("document {id} not found")))?;
+    if doc.kb_id != kb_access.kb.id {
+        return Err(AppError::NotFound("document not found in this KB".into()));
+    }
+
+    let page_list = db::page_indexes::get_pages_for_document(&state.db, id).await?;
+    let doc_index = db::page_indexes::get_document_index(&state.db, id).await?;
+
+    Ok(Json(json!({
+        "document": doc,
+        "pages": page_list,
+        "root_index": doc_index.map(|di| di.root_index),
+    })))
 }

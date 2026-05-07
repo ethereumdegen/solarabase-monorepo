@@ -50,10 +50,7 @@ async fn process_pending(state: &AppState) -> Result<usize, BoxErr> {
 
         db::documents::update_status(&state.db, doc.id, DocStatus::Processing, None).await?;
 
-        // Look up KB model for this document
-        let kb = db::knowledgebases::get_by_id(&state.db, doc.kb_id).await?;
-        let model = kb.as_ref().map(|k| k.model.as_str()).unwrap_or("gpt-4o");
-        let llm = LlmClient::new_with_model(&state.config.openai_api_key, model);
+        let llm = LlmClient::new_with_model(&state.config.openai_api_key, &state.config.openai_model);
 
         match index_document(state, &llm, &doc).await {
             Ok(()) => {
@@ -108,6 +105,11 @@ async fn index_document(
     let root_index = build_document_root_index(llm, &doc.filename, &page_summaries).await?;
 
     db::page_indexes::insert_document_index(&state.db, doc.id, &root_index).await?;
+
+    // Generate wiki concept pages from the root index
+    if state.bucket.is_some() {
+        generate_wiki_pages(state, llm, doc, &root_index, &page_summaries).await?;
+    }
 
     Ok(())
 }
@@ -251,6 +253,94 @@ pub fn split_into_pages(text: &str) -> Vec<String> {
     }
 
     pages
+}
+
+const WIKI_SYSTEM: &str = r#"You are a wiki page generator. Given a document's root index and page summaries, generate a concept wiki page in Markdown.
+
+The page should:
+1. Have a clear title as H1
+2. Provide a comprehensive explanation of the concept
+3. Include relevant details from the source document
+4. Use proper Markdown formatting (headers, lists, code blocks if relevant)
+5. End with a "Sources" section citing the document and page numbers
+
+Output ONLY the Markdown content, no JSON wrapping."#;
+
+async fn generate_wiki_pages(
+    state: &AppState,
+    llm: &LlmClient,
+    doc: &crate::models::document::Document,
+    root_index: &serde_json::Value,
+    page_summaries: &[serde_json::Value],
+) -> Result<(), BoxErr> {
+    let bucket = state.require_bucket().map_err(|e| -> BoxErr { e.to_string().into() })?;
+
+    // Extract key themes from root index to generate wiki pages
+    let themes = root_index
+        .get("key_themes")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    for theme_val in themes.iter().take(5) {
+        let theme = match theme_val.as_str() {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+
+        let slug = theme
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+            .collect::<String>()
+            .trim_matches('-')
+            .to_string();
+
+        if slug.is_empty() {
+            continue;
+        }
+
+        let user_prompt = format!(
+            "Document: {}\n\nRoot Index:\n{}\n\nPage Summaries:\n{}\n\nGenerate a wiki concept page about: {}",
+            doc.filename,
+            serde_json::to_string_pretty(root_index).unwrap_or_default(),
+            serde_json::to_string_pretty(page_summaries).unwrap_or_default(),
+            theme,
+        );
+
+        let markdown = match llm.complete(WIKI_SYSTEM, &user_prompt).await {
+            Ok(text) => text,
+            Err(e) => {
+                tracing::warn!(theme = %theme, error = %e, "wiki page generation failed, skipping");
+                continue;
+            }
+        };
+
+        let s3_key = format!("{}/wiki/{}.md", doc.kb_id, slug);
+        s3::upload_bytes(bucket, &s3_key, markdown.as_bytes(), "text/markdown").await?;
+
+        let sources = json!([{
+            "document_id": doc.id,
+            "filename": doc.filename,
+        }]);
+
+        db::wiki_pages::upsert(
+            &state.db,
+            doc.kb_id,
+            Some(doc.id),
+            &slug,
+            &theme,
+            root_index.get("summary").and_then(|v| v.as_str()),
+            &s3_key,
+            "concept",
+            &sources,
+        )
+        .await?;
+
+        tracing::info!(doc_id = %doc.id, slug = %slug, "wiki page generated");
+    }
+
+    Ok(())
 }
 
 fn build_fallback_tree_index(content: &str, page_num: i32) -> serde_json::Value {

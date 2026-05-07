@@ -55,15 +55,12 @@ pub async fn update(
     id: Uuid,
     name: &str,
     description: &str,
-    system_prompt: &str,
-    model: &str,
     accent_color: &str,
 ) -> AppResult<Knowledgebase> {
     let kb = sqlx::query_as::<_, Knowledgebase>(
         r#"
         UPDATE knowledgebases
-        SET name = $2, description = $3, system_prompt = $4,
-            model = $5, accent_color = $6, updated_at = now()
+        SET name = $2, description = $3, accent_color = $4, updated_at = now()
         WHERE id = $1
         RETURNING *
         "#,
@@ -71,8 +68,6 @@ pub async fn update(
     .bind(id)
     .bind(name)
     .bind(description)
-    .bind(system_prompt)
-    .bind(model)
     .bind(accent_color)
     .fetch_one(pool)
     .await?;

@@ -12,8 +12,6 @@ export function KbSettings({
 }) {
   const [name, setName] = useState(kb.name);
   const [description, setDescription] = useState(kb.description);
-  const [systemPrompt, setSystemPrompt] = useState(kb.system_prompt);
-  const [model, setModel] = useState(kb.model);
   const [accentColor, setAccentColor] = useState(kb.accent_color);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -33,7 +31,7 @@ export function KbSettings({
     setSaveError(null);
     try {
       const updated = await updateKbSettings(kb.id, {
-        name, description, system_prompt: systemPrompt, model, accent_color: accentColor,
+        name, description, accent_color: accentColor,
       });
       onUpdated(updated);
     } catch (e: any) {
@@ -84,27 +82,9 @@ export function KbSettings({
         </div>
 
         <div>
-          <label className="text-xs text-gray-400 block mb-1">System Prompt</label>
-          <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={4}
-            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
-        </div>
-
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="text-xs text-gray-400 block mb-1">Model</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-              <option value="gpt-4o">gpt-4o</option>
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
-              <option value="gpt-4.1">gpt-4.1</option>
-              <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 block mb-1">Accent Color</label>
-            <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
-              className="h-10 w-14 rounded-xl border border-gray-200 cursor-pointer" />
-          </div>
+          <label className="text-xs text-gray-400 block mb-1">Accent Color</label>
+          <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+            className="h-10 w-14 rounded-xl border border-gray-200 cursor-pointer" />
         </div>
 
         {saveError && <p className="text-xs text-red-500">{saveError}</p>}

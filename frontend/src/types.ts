@@ -106,6 +106,24 @@ export type ChatSession = {
   updated_at: string;
 };
 
+export type WikiPage = {
+  id: string;
+  kb_id: string;
+  document_id: string | null;
+  slug: string;
+  title: string;
+  summary: string | null;
+  content_s3_key: string;
+  page_type: string;
+  sources: any;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WikiPageDetail = WikiPage & {
+  markdown: string;
+};
+
 export type Invitation = {
   id: string;
   workspace_id: string;

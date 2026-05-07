@@ -4,7 +4,7 @@ use axum::routing::{delete, get, post, put};
 use axum::Router;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::CorsLayer;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
@@ -156,6 +156,14 @@ async fn main() {
                 .delete(controllers::documents::delete),
         )
         .route(
+            "/api/kb/{kb_id}/documents/{id}/content",
+            get(controllers::documents::content),
+        )
+        .route(
+            "/api/kb/{kb_id}/documents/{id}/pages",
+            get(controllers::documents::pages),
+        )
+        .route(
             "/api/kb/{kb_id}/query",
             post(controllers::query::query),
         )
@@ -176,6 +184,15 @@ async fn main() {
         .route(
             "/api/kb/{kb_id}/sessions/{sid}/messages",
             post(controllers::chat_sessions::send_message),
+        )
+        // Wiki
+        .route(
+            "/api/kb/{kb_id}/wiki",
+            get(controllers::wiki::list_pages),
+        )
+        .route(
+            "/api/kb/{kb_id}/wiki/{slug}",
+            get(controllers::wiki::get_page),
         )
         // API keys
         .route(
@@ -215,7 +232,8 @@ async fn main() {
         .merge(api_routes)
         .with_state(state)
         .fallback_service(
-            ServeDir::new("frontend/dist").fallback(ServeDir::new("frontend/dist")),
+            ServeDir::new("frontend/dist")
+                .fallback(ServeFile::new("frontend/dist/index.html")),
         )
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

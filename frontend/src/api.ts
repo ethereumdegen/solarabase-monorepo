@@ -9,6 +9,8 @@ import type {
   BillingInfo,
   MemberWithUser,
   ChatSession,
+  WikiPage,
+  WikiPageDetail,
 } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -96,6 +98,16 @@ export const deleteDocument = (kbId: string, docId: string) =>
     method: 'DELETE',
     credentials: 'include',
   });
+export const getDocumentContentUrl = (kbId: string, docId: string) =>
+  `/api/kb/${kbId}/documents/${docId}/content`;
+export const getDocumentPages = (kbId: string, docId: string) =>
+  fetchJson<{ document: Document; pages: any[]; root_index: any }>(`/api/kb/${kbId}/documents/${docId}/pages`);
+
+// Wiki
+export const listWikiPages = (kbId: string) =>
+  fetchJson<{ pages: WikiPage[]; total: number }>(`/api/kb/${kbId}/wiki`);
+export const getWikiPage = (kbId: string, slug: string) =>
+  fetchJson<WikiPageDetail>(`/api/kb/${kbId}/wiki/${slug}`);
 
 // Query
 export const queryKb = (kbId: string, question: string, sessionId?: string) =>

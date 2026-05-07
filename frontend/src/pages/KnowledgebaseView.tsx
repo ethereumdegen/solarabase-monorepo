@@ -4,11 +4,12 @@ import { Layout } from '../components/Layout';
 import { QueryPanel } from '../components/QueryPanel';
 import { DocumentList } from '../components/DocumentList';
 import { Upload } from '../components/Upload';
+import { WikiPanel } from '../components/WikiPanel';
 import { KbSettings } from '../components/KbSettings';
 import { getKbSettings } from '../api';
 import type { Knowledgebase } from '../types';
 
-type Tab = 'query' | 'documents' | 'settings';
+type Tab = 'query' | 'documents' | 'wiki' | 'settings';
 
 export function KnowledgebaseView() {
   const { kbId } = useParams<{ kbId: string }>();
@@ -43,7 +44,7 @@ export function KnowledgebaseView() {
             )}
           </div>
           <nav className="flex gap-1">
-            {(['query', 'documents', 'settings'] as Tab[]).map((t) => (
+            {(['query', 'documents', 'wiki', 'settings'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -66,6 +67,7 @@ export function KnowledgebaseView() {
             <DocumentList kbId={kbId} key={refreshKey} />
           </div>
         )}
+        {tab === 'wiki' && <WikiPanel kbId={kbId} />}
         {tab === 'settings' && <KbSettings kb={kb} onUpdated={setKb} />}
       </div>
     </Layout>

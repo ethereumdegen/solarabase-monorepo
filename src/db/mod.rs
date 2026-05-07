@@ -6,4 +6,5 @@ pub mod knowledgebases;
 pub mod page_indexes;
 pub mod subscriptions;
 pub mod users;
+pub mod wiki_pages;
 pub mod workspaces;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { listWikiPages, getWikiPage } from '../api';
 import type { WikiPage, WikiPageDetail } from '../types';
 
@@ -93,7 +93,7 @@ export function WikiPanel({ kbId }: { kbId: string }) {
 function MarkdownRenderer({ content }: { content: string }) {
   // Simple markdown rendering — handles headers, bold, lists, code blocks
   const lines = content.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactNode[] = [];
   let inCodeBlock = false;
   let codeLines: string[] = [];
   let codeKey = 0;

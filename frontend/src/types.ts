@@ -106,6 +106,16 @@ export type ChatSession = {
   updated_at: string;
 };
 
+export type KbRole = 'viewer' | 'editor' | 'admin';
+
+export type KbMember = {
+  user_id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  role: KbRole;
+};
+
 export type WikiPage = {
   id: string;
   kb_id: string;

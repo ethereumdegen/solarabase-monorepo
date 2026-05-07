@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::db;
 use crate::error::AppError;
-use crate::models::knowledgebase::Knowledgebase;
+use crate::models::knowledgebase::{KbRole, Knowledgebase};
 use crate::models::user::User;
 use crate::models::workspace::WorkspaceRole;
 use crate::state::AppState;
@@ -45,11 +45,13 @@ impl FromRequestParts<AppState> for AuthUser {
 }
 
 /// Extracts KB access: validates user has access to a KB via workspace membership OR API key.
+/// If the KB has explicit kb_memberships, only listed users + workspace owners/admins get access.
 /// Expects `kb_id` in the URL path.
 pub struct KbAccess {
     pub user: User,
     pub kb: Knowledgebase,
     pub role: WorkspaceRole,
+    pub kb_role: Option<KbRole>,
     pub via_api_key: bool,
 }
 
@@ -93,6 +95,7 @@ impl FromRequestParts<AppState> for KbAccess {
                                 user,
                                 kb,
                                 role: WorkspaceRole::Member,
+                                kb_role: None,
                                 via_api_key: true,
                             });
                         }
@@ -116,10 +119,27 @@ impl FromRequestParts<AppState> for KbAccess {
                 .await?
                 .ok_or_else(|| AppError::Forbidden("not a member of this workspace".into()))?;
 
+        // Check KB-level access if KB has explicit memberships
+        let kb_role = if db::knowledgebases::kb_has_memberships(&state.db, kb_id).await? {
+            // Workspace owners/admins always have access
+            if membership.role == WorkspaceRole::Owner || membership.role == WorkspaceRole::Admin {
+                Some(KbRole::Admin)
+            } else {
+                // Must have explicit KB membership
+                let kb_membership = db::knowledgebases::get_kb_membership(&state.db, kb_id, user.id)
+                    .await?
+                    .ok_or_else(|| AppError::Forbidden("no access to this knowledgebase".into()))?;
+                Some(kb_membership.role)
+            }
+        } else {
+            None // No KB-level restrictions, workspace membership sufficient
+        };
+
         Ok(KbAccess {
             user,
             kb,
             role: membership.role,
+            kb_role,
             via_api_key: false,
         })
     }

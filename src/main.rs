@@ -185,6 +185,16 @@ async fn main() {
             "/api/kb/{kb_id}/sessions/{sid}/messages",
             post(controllers::chat_sessions::send_message),
         )
+        // KB members (RBAC)
+        .route(
+            "/api/kb/{kb_id}/members",
+            get(controllers::settings::list_kb_members)
+                .post(controllers::settings::add_kb_member),
+        )
+        .route(
+            "/api/kb/{kb_id}/members/{user_id}",
+            delete(controllers::settings::remove_kb_member),
+        )
         // Wiki
         .route(
             "/api/kb/{kb_id}/wiki",

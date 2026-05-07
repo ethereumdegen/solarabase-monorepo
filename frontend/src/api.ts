@@ -11,6 +11,8 @@ import type {
   ChatSession,
   WikiPage,
   WikiPageDetail,
+  KbMember,
+  KbRole,
 } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -144,6 +146,21 @@ export const createCheckout = (wsId: string, plan: string) =>
 export const createPortal = (wsId: string) =>
   fetchJson<{ url: string }>(`/api/workspaces/${wsId}/billing/portal`, {
     method: 'POST',
+  });
+
+// KB Members
+export const listKbMembers = (kbId: string) =>
+  fetchJson<KbMember[]>(`/api/kb/${kbId}/members`);
+export const addKbMember = (kbId: string, email: string, role?: KbRole) =>
+  fetchJson<unknown>(`/api/kb/${kbId}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, role }),
+  });
+export const removeKbMember = (kbId: string, userId: string) =>
+  fetch(`/api/kb/${kbId}/members/${userId}`, {
+    method: 'DELETE',
+    credentials: 'include',
   });
 
 // Chat sessions

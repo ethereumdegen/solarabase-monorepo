@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { updateKbSettings, listApiKeys, createApiKey, revokeApiKey } from '../api';
-import type { Knowledgebase, ApiKeyInfo } from '../types';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { updateKbSettings, listApiKeys, createApiKey, revokeApiKey, listKbMembers, addKbMember, removeKbMember } from '../api';
+import type { Knowledgebase, ApiKeyInfo, KbMember, KbRole } from '../types';
+import { useAuth } from '../auth';
 
 export function KbSettings({
   kb,
@@ -10,6 +10,7 @@ export function KbSettings({
   kb: Knowledgebase;
   onUpdated: (kb: Knowledgebase) => void;
 }) {
+  const { user } = useAuth();
   const [name, setName] = useState(kb.name);
   const [description, setDescription] = useState(kb.description);
   const [accentColor, setAccentColor] = useState(kb.accent_color);
@@ -22,8 +23,15 @@ export function KbSettings({
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
 
+  // KB Members
+  const [kbMembers, setKbMembers] = useState<KbMember[]>([]);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState<KbRole>('viewer');
+  const [memberError, setMemberError] = useState<string | null>(null);
+
   useEffect(() => {
     listApiKeys(kb.id).then(setApiKeys).catch(() => {});
+    listKbMembers(kb.id).then(setKbMembers).catch(() => {});
   }, [kb.id]);
 
   const handleSave = async () => {
@@ -51,6 +59,28 @@ export function KbSettings({
       listApiKeys(kb.id).then(setApiKeys);
     } catch (e: any) {
       setKeyError(e.message || 'Failed to create key');
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!memberEmail.trim()) return;
+    setMemberError(null);
+    try {
+      await addKbMember(kb.id, memberEmail.trim(), memberRole);
+      setMemberEmail('');
+      listKbMembers(kb.id).then(setKbMembers);
+    } catch (e: any) {
+      setMemberError(e.message || 'Failed to add member');
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!confirm('Remove this member from KB?')) return;
+    try {
+      await removeKbMember(kb.id, userId);
+      listKbMembers(kb.id).then(setKbMembers);
+    } catch (e: any) {
+      setMemberError(e.message || 'Failed to remove member');
     }
   };
 
@@ -92,6 +122,66 @@ export function KbSettings({
           className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
+      </div>
+
+      {/* KB Members */}
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">KB Access Control</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          {kbMembers.length === 0
+            ? 'All workspace members can access this KB. Add members below to restrict access.'
+            : 'Only listed users (and workspace admins) can access this KB.'}
+        </p>
+
+        {memberError && <p className="text-xs text-red-500 mb-3">{memberError}</p>}
+
+        <div className="flex gap-2 mb-4">
+          <input value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddMember()}
+            placeholder="Email"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+          <select value={memberRole} onChange={(e) => setMemberRole(e.target.value as KbRole)}
+            className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+            <option value="viewer">Viewer</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onClick={handleAddMember}
+            className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium">
+            Add
+          </button>
+        </div>
+
+        {kbMembers.length > 0 && (
+          <div className="space-y-2">
+            {kbMembers.map((m) => (
+              <div key={m.user_id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  {m.avatar_url ? (
+                    <img src={m.avatar_url} alt="" className="w-7 h-7 rounded-full" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-500">
+                      {m.name[0]}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">{m.name}</p>
+                    <p className="text-xs text-gray-400">{m.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 capitalize">{m.role}</span>
+                  {m.user_id !== user?.id && (
+                    <button onClick={() => handleRemoveMember(m.user_id)}
+                      className="text-xs text-red-400 hover:text-red-600">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* API Keys */}

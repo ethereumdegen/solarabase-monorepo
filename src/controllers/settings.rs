@@ -47,18 +47,10 @@ pub async fn update_settings(
 }
 
 fn require_kb_admin(kb_access: &KbAccess) -> AppResult<()> {
-    if kb_access.via_api_key {
-        return Err(AppError::Forbidden("not available via API key".into()));
+    if !kb_access.can_admin() {
+        return Err(AppError::Forbidden("admin required".into()));
     }
-    // Workspace owner/admin always has access
-    if kb_access.role == WorkspaceRole::Owner || kb_access.role == WorkspaceRole::Admin {
-        return Ok(());
-    }
-    // KB-level admin
-    if kb_access.kb_role == Some(KbRole::Admin) {
-        return Ok(());
-    }
-    Err(AppError::Forbidden("admin required".into()))
+    Ok(())
 }
 
 /// GET /api/kb/:kb_id/members

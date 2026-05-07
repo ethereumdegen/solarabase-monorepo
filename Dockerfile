@@ -14,7 +14,6 @@ COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
 COPY migrations/ migrations/
 
-ENV SQLX_OFFLINE=true
 RUN cargo build --release
 
 # --- Stage 3: Runtime ---

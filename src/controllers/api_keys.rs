@@ -21,11 +21,8 @@ pub async fn list(
     kb_access: KbAccess,
     State(state): State<AppState>,
 ) -> AppResult<Json<serde_json::Value>> {
-    if kb_access.via_api_key {
-        return Err(AppError::Forbidden("cannot manage API keys via API key auth".into()));
-    }
-    if kb_access.role == WorkspaceRole::Member {
-        return Err(AppError::Forbidden("admin required".into()));
+    if !kb_access.can_admin() {
+        return Err(AppError::Forbidden("admin required to manage API keys".into()));
     }
 
     let keys = db::api_keys::list_for_kb(&state.db, kb_access.kb.id).await?;

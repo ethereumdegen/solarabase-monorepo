@@ -97,7 +97,7 @@ pub async fn delete(
     kb_access: KbAccess,
     State(state): State<AppState>,
 ) -> AppResult<StatusCode> {
-    if kb_access.via_api_key || kb_access.role == WorkspaceRole::Member {
+    if !kb_access.can_admin() {
         return Err(AppError::Forbidden("admin required to delete KB".into()));
     }
 

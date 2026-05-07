@@ -145,6 +145,34 @@ impl FromRequestParts<AppState> for KbAccess {
     }
 }
 
+impl KbAccess {
+    /// Returns true if user has at least editor-level write access.
+    pub fn can_write(&self) -> bool {
+        if self.via_api_key {
+            return true; // API keys grant write access
+        }
+        match self.role {
+            WorkspaceRole::Owner | WorkspaceRole::Admin => true,
+            WorkspaceRole::Member => match self.kb_role {
+                Some(KbRole::Admin) | Some(KbRole::Editor) => true,
+                Some(KbRole::Viewer) => false,
+                None => true, // No KB-level restrictions
+            },
+        }
+    }
+
+    /// Returns true if user has admin access to KB.
+    pub fn can_admin(&self) -> bool {
+        if self.via_api_key {
+            return false;
+        }
+        match self.role {
+            WorkspaceRole::Owner | WorkspaceRole::Admin => true,
+            WorkspaceRole::Member => self.kb_role == Some(KbRole::Admin),
+        }
+    }
+}
+
 fn extract_kb_id(parts: &Parts) -> Result<Uuid, AppError> {
     let path = parts.uri.path();
     // Path format: /api/kb/{kb_id}/...

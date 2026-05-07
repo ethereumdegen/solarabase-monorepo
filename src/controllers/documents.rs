@@ -18,6 +18,9 @@ pub async fn upload(
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<Value>)> {
+    if !kb_access.can_write() {
+        return Err(AppError::Forbidden("editor access required to upload".into()));
+    }
     let bucket = state.require_bucket()?;
 
     let mut file_data: Option<(String, String, Vec<u8>)> = None;
@@ -111,6 +114,9 @@ pub async fn delete(
     State(state): State<AppState>,
     Path((_kb_id, id)): Path<(Uuid, Uuid)>,
 ) -> AppResult<StatusCode> {
+    if !kb_access.can_write() {
+        return Err(AppError::Forbidden("editor access required to delete".into()));
+    }
     let doc = db::documents::get_by_id(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("document {id} not found")))?;

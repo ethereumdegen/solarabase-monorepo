@@ -368,7 +368,13 @@ Important:
 - Always cite sources: mention document filename and page number
 - If information spans multiple pages, read all relevant pages before answering
 - If no relevant content is found, say so honestly — do not guess
-- Prefer fewer, targeted tool calls over exhaustive scanning"#,
+- Prefer fewer, targeted tool calls over exhaustive scanning
+
+Multi-turn conversations:
+- You may receive prior conversation history. The user's LATEST message is your primary task.
+- Treat earlier messages as context — they inform what the user is really asking about.
+- When a follow-up message references something vague (e.g. "check X", "what about Y"), connect it to the original question. The user is continuing their line of inquiry, not starting a new one.
+- Always prioritize answering the user's current question. Use prior context to make your answer more relevant, not to repeat previous answers."#,
     );
 
     prompt

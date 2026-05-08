@@ -72,6 +72,25 @@ pub async fn update_status(
     Ok(())
 }
 
+/// Only update status if the document is still in 'processing'.
+/// Prevents a completed indexer run from overwriting a reindex reset.
+pub async fn update_status_if_processing(
+    pool: &PgPool,
+    id: Uuid,
+    status: DocStatus,
+    error_msg: Option<&str>,
+) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE documents SET status = $2, error_msg = $3, updated_at = now() WHERE id = $1 AND status = 'processing'",
+    )
+    .bind(id)
+    .bind(status)
+    .bind(error_msg)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn update_page_count(pool: &PgPool, id: Uuid, page_count: i32) -> AppResult<()> {
     sqlx::query("UPDATE documents SET page_count = $2, updated_at = now() WHERE id = $1")
         .bind(id)
@@ -111,6 +130,7 @@ pub async fn reset_stuck_processing(pool: &PgPool) -> AppResult<u64> {
 }
 
 /// Reset a document to "uploaded" and clear its indexes so the indexer re-processes it.
+/// Also clears wiki pages generated from this document to prevent stale orphans.
 pub async fn reset_for_reindex(pool: &PgPool, id: Uuid) -> AppResult<()> {
     sqlx::query("DELETE FROM document_indexes WHERE document_id = $1")
         .bind(id)
@@ -120,8 +140,12 @@ pub async fn reset_for_reindex(pool: &PgPool, id: Uuid) -> AppResult<()> {
         .bind(id)
         .execute(pool)
         .await?;
+    sqlx::query("DELETE FROM wiki_pages WHERE document_id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
     sqlx::query(
-        "UPDATE documents SET status = 'uploaded', page_count = NULL, error_msg = NULL, updated_at = now() WHERE id = $1",
+        "UPDATE documents SET status = 'uploaded', page_count = NULL, pages_indexed = NULL, error_msg = NULL, updated_at = now() WHERE id = $1",
     )
     .bind(id)
     .execute(pool)

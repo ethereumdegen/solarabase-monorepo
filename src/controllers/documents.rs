@@ -176,6 +176,7 @@ pub async fn reindex(
     }
 
     db::documents::reset_for_reindex(&state.db, id).await?;
+    state.rag_cache.invalidate(kb_access.kb.id).await;
 
     tracing::info!(doc_id = %id, kb_id = %kb_access.kb.id, "document queued for reindex");
 

@@ -54,13 +54,14 @@ async fn process_pending(state: &AppState) -> Result<usize, BoxErr> {
 
         match index_document(state, &llm, &doc).await {
             Ok(()) => {
-                db::documents::update_status(&state.db, doc.id, DocStatus::Indexed, None).await?;
+                // Only mark indexed if still in processing (a reindex may have reset it)
+                db::documents::update_status_if_processing(&state.db, doc.id, DocStatus::Indexed, None).await?;
                 tracing::info!(doc_id = %doc.id, "document indexed successfully");
             }
             Err(e) => {
                 let msg = e.to_string();
                 tracing::error!(doc_id = %doc.id, error = %msg, "indexing failed");
-                db::documents::update_status(&state.db, doc.id, DocStatus::Failed, Some(&msg))
+                db::documents::update_status_if_processing(&state.db, doc.id, DocStatus::Failed, Some(&msg))
                     .await?;
             }
         }

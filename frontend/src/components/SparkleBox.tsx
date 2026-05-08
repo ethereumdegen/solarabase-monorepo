@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
+// @ts-expect-error — animejs has no types
 import anime from 'animejs';
+
+type Dot = { x: number; y: number; alpha: number; scale: number };
 
 const COLS = 20;
 const ROWS = 12;
@@ -34,7 +37,7 @@ export function SparkleBox({ children }: { children: React.ReactNode }) {
     const offsetY = (rect.height - (ROWS - 1) * GAP) / 2 + 20;
 
     // Create grid dots
-    const dots = [];
+    const dots: Dot[] = [];
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         dots.push({

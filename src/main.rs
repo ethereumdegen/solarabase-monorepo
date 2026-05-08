@@ -41,12 +41,7 @@ async fn main() {
 
     tracing::info!("connected to database");
 
-    sqlx::migrate!("./migrations")
-        .run(&db)
-        .await
-        .expect("failed to run migrations");
-
-    tracing::info!("migrations complete");
+    tracing::info!("skipping auto-migrations — run `cargo run --bin migrate` to apply");
 
     // S3 (optional)
     let bucket = if let Some(ref s3_config) = config.s3 {

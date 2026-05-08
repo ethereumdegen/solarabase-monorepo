@@ -36,8 +36,10 @@ ALTER TABLE invitations DROP CONSTRAINT invitations_workspace_id_email_key;
 ALTER TABLE invitations ADD CONSTRAINT invitations_kb_id_email_key UNIQUE (kb_id, email);
 ALTER TABLE invitations DROP COLUMN workspace_id;
 -- Change role column from workspace_role to kb_role
+ALTER TABLE invitations ALTER COLUMN role DROP DEFAULT;
 ALTER TABLE invitations ALTER COLUMN role TYPE kb_role USING
   CASE role::text WHEN 'owner' THEN 'admin'::kb_role WHEN 'admin' THEN 'admin'::kb_role WHEN 'member' THEN 'editor'::kb_role END;
+ALTER TABLE invitations ALTER COLUMN role SET DEFAULT 'editor';
 
 -- 6. Drop workspace_id from knowledgebases
 ALTER TABLE knowledgebases DROP COLUMN workspace_id;

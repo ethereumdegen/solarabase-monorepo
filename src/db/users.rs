@@ -11,6 +11,7 @@ pub async fn upsert_from_google(
     name: &str,
     avatar_url: Option<&str>,
 ) -> AppResult<User> {
+    // Try by google_id first, then fall back to email match (handles dev→google migration)
     let user = sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (google_id, email, name, avatar_url)
@@ -28,8 +29,29 @@ pub async fn upsert_from_google(
     .bind(name)
     .bind(avatar_url)
     .fetch_one(pool)
-    .await?;
-    Ok(user)
+    .await;
+
+    match user {
+        Ok(u) => Ok(u),
+        Err(_) => {
+            // Email already exists with different google_id — update the existing row
+            let user = sqlx::query_as::<_, User>(
+                r#"
+                UPDATE users
+                SET google_id = $1, name = $2, avatar_url = $3, last_login_at = now()
+                WHERE email = $4
+                RETURNING *
+                "#,
+            )
+            .bind(google_id)
+            .bind(name)
+            .bind(avatar_url)
+            .bind(email)
+            .fetch_one(pool)
+            .await?;
+            Ok(user)
+        }
+    }
 }
 
 pub async fn get_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<User>> {

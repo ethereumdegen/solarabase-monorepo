@@ -46,8 +46,8 @@ pub struct UsageRecord {
 impl PlanTier {
     pub fn max_kbs(&self) -> Option<i64> {
         match self {
-            PlanTier::Free => Some(1),
-            PlanTier::Pro => Some(5),
+            PlanTier::Free => Some(3),
+            PlanTier::Pro => Some(10),
             PlanTier::Team => None,
         }
     }
@@ -62,7 +62,7 @@ impl PlanTier {
 
     pub fn max_queries_per_month(&self) -> Option<i64> {
         match self {
-            PlanTier::Free => Some(100),
+            PlanTier::Free => Some(500),
             PlanTier::Pro => Some(5000),
             PlanTier::Team => None,
         }
@@ -70,17 +70,17 @@ impl PlanTier {
 
     pub fn max_members(&self) -> Option<i64> {
         match self {
-            PlanTier::Free => Some(1),
-            PlanTier::Pro => Some(3),
+            PlanTier::Free => Some(2),
+            PlanTier::Pro => Some(5),
             PlanTier::Team => None,
         }
     }
 
     pub fn max_file_size_bytes(&self) -> i64 {
         match self {
-            PlanTier::Free => 10 * 1024 * 1024,
-            PlanTier::Pro => 50 * 1024 * 1024,
-            PlanTier::Team => 100 * 1024 * 1024,
+            PlanTier::Free => 100 * 1024 * 1024,
+            PlanTier::Pro => 500 * 1024 * 1024,
+            PlanTier::Team => 1024 * 1024 * 1024,
         }
     }
 }

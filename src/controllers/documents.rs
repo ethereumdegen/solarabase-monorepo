@@ -136,6 +136,30 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// POST /api/kb/:kb_id/documents/:id/reindex
+pub async fn reindex(
+    kb_access: KbAccess,
+    State(state): State<AppState>,
+    Path((_kb_id, id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<Value>> {
+    if !kb_access.can_write() {
+        return Err(AppError::Forbidden("editor access required to reindex".into()));
+    }
+    let doc = db::documents::get_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("document {id} not found")))?;
+    if doc.kb_id != kb_access.kb.id {
+        return Err(AppError::NotFound("document not found in this KB".into()));
+    }
+
+    db::documents::reset_for_reindex(&state.db, id).await?;
+
+    tracing::info!(doc_id = %id, kb_id = %kb_access.kb.id, "document queued for reindex");
+
+    let doc = db::documents::get_by_id(&state.db, id).await?.unwrap();
+    Ok(Json(json!(doc)))
+}
+
 /// GET /api/kb/:kb_id/documents/:id/content — proxy S3 file content
 pub async fn content(
     kb_access: KbAccess,

@@ -100,6 +100,8 @@ export const deleteDocument = (kbId: string, docId: string) =>
     method: 'DELETE',
     credentials: 'include',
   });
+export const reindexDocument = (kbId: string, docId: string) =>
+  fetchJson<Document>(`/api/kb/${kbId}/documents/${docId}/reindex`, { method: 'POST' });
 export const getDocumentContentUrl = (kbId: string, docId: string) =>
   `/api/kb/${kbId}/documents/${docId}/content`;
 export const getDocumentPages = (kbId: string, docId: string) =>

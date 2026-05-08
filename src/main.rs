@@ -156,6 +156,10 @@ async fn main() {
                 .delete(controllers::documents::delete),
         )
         .route(
+            "/api/kb/{kb_id}/documents/{id}/reindex",
+            post(controllers::documents::reindex),
+        )
+        .route(
             "/api/kb/{kb_id}/documents/{id}/content",
             get(controllers::documents::content),
         )

@@ -108,6 +108,25 @@ pub async fn reset_stuck_processing(pool: &PgPool) -> AppResult<u64> {
     Ok(result.rows_affected())
 }
 
+/// Reset a document to "uploaded" and clear its indexes so the indexer re-processes it.
+pub async fn reset_for_reindex(pool: &PgPool, id: Uuid) -> AppResult<()> {
+    sqlx::query("DELETE FROM document_indexes WHERE document_id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM page_indexes WHERE document_id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    sqlx::query(
+        "UPDATE documents SET status = 'uploaded', page_count = NULL, error_msg = NULL, updated_at = now() WHERE id = $1",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn count_for_kb(pool: &PgPool, kb_id: Uuid) -> AppResult<i64> {
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM documents WHERE kb_id = $1",

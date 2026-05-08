@@ -19,8 +19,10 @@ pub async fn google_redirect(State(state): State<AppState>) -> Result<Response, 
     let csrf_state = google_oauth::generate_oauth_state();
     let url = google_oauth::google_auth_url(oauth, &csrf_state);
 
+    let is_https = state.config.public_url.starts_with("https://");
+    let secure_flag = if is_https { "; Secure" } else { "" };
     let state_cookie = format!(
-        "sb_oauth_state={csrf_state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax"
+        "sb_oauth_state={csrf_state}; HttpOnly; Path=/; Max-Age=600; SameSite=Lax{secure_flag}"
     );
 
     let mut headers = HeaderMap::new();
@@ -49,16 +51,23 @@ pub async fn google_callback(
     let expected_state = extract_cookie(&headers, "sb_oauth_state");
     let received_state = params.state.as_deref().unwrap_or("");
     if expected_state.is_empty() || expected_state != received_state {
-        return Err(AppError::BadRequest("invalid oauth state".into()));
+        tracing::error!(expected = %expected_state, received = %received_state, "oauth state mismatch");
+        return Err(AppError::BadRequest("invalid oauth state — cookies may be blocked".into()));
     }
 
     let token_resp = google_oauth::exchange_code(oauth, &params.code)
         .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!(error = %e, "google token exchange failed");
+            AppError::Internal(e.to_string())
+        })?;
 
     let user_info = google_oauth::fetch_user_info(&token_resp.access_token)
         .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!(error = %e, "google userinfo fetch failed");
+            AppError::Internal(e.to_string())
+        })?;
 
     let user = db::users::upsert_from_google(
         &state.db,

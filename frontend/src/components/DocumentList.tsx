@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { listDocuments, deleteDocument, getDocumentContentUrl, getDocumentPages } from '../api';
+import { listDocuments, deleteDocument, reindexDocument, getDocumentContentUrl, getDocumentPages } from '../api';
 import type { Document } from '../types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -215,6 +215,12 @@ export function DocumentList({ kbId }: { kbId: string }) {
     load();
   };
 
+  const handleReindex = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    await reindexDocument(kbId, id);
+    load();
+  };
+
   if (loading) return <p className="text-gray-400 text-center py-8">Loading documents...</p>;
   if (docs.length === 0) return <p className="text-gray-400 text-center py-8">No documents yet. Upload one above.</p>;
 
@@ -261,13 +267,24 @@ export function DocumentList({ kbId }: { kbId: string }) {
                 )}
               </div>
 
-              <button
-                onClick={(e) => handleDelete(e, doc.id)}
-                className="text-gray-300 hover:text-red-500 transition-colors text-sm"
-                title="Delete"
-              >
-                x
-              </button>
+              <div className="flex items-center gap-1">
+                {(doc.status === 'indexed' || doc.status === 'failed') && (
+                  <button
+                    onClick={(e) => handleReindex(e, doc.id)}
+                    className="text-gray-300 hover:text-blue-500 transition-colors text-xs px-1"
+                    title="Re-index"
+                  >
+                    ↻
+                  </button>
+                )}
+                <button
+                  onClick={(e) => handleDelete(e, doc.id)}
+                  className="text-gray-300 hover:text-red-500 transition-colors text-sm"
+                  title="Delete"
+                >
+                  x
+                </button>
+              </div>
             </div>
           ))}
         </div>

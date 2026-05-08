@@ -111,6 +111,44 @@ pub async fn get_document_indexes_for_kb(
 }
 
 /// Get pages for a document, but only if that document belongs to the given KB.
+/// Full-text search across page content, scoped to a KB.
+pub async fn search_pages_fts(
+    pool: &PgPool,
+    kb_id: Uuid,
+    query: &str,
+    limit: i64,
+) -> AppResult<Vec<FtsPageHit>> {
+    let hits = sqlx::query_as::<_, FtsPageHit>(
+        r#"
+        SELECT pi.document_id, pi.page_num, d.filename,
+               ts_rank(pi.content_tsv, websearch_to_tsquery('english', $1)) AS rank,
+               ts_headline('english', pi.content, websearch_to_tsquery('english', $1),
+                   'MaxWords=60, MinWords=20, StartSel=>>>, StopSel=<<<') AS snippet
+        FROM page_indexes pi
+        JOIN documents d ON d.id = pi.document_id
+        WHERE d.kb_id = $2
+          AND pi.content_tsv @@ websearch_to_tsquery('english', $1)
+        ORDER BY rank DESC
+        LIMIT $3
+        "#,
+    )
+    .bind(query)
+    .bind(kb_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    Ok(hits)
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+pub struct FtsPageHit {
+    pub document_id: Uuid,
+    pub page_num: i32,
+    pub filename: String,
+    pub rank: f32,
+    pub snippet: String,
+}
+
 pub async fn get_page_scoped(
     pool: &PgPool,
     kb_id: Uuid,

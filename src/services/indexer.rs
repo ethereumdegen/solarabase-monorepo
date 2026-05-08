@@ -1,5 +1,7 @@
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
+use regex::Regex;
 use serde_json::json;
 use tokio::time::sleep;
 
@@ -108,7 +110,7 @@ async fn index_document(
         }));
     }
 
-    let root_index = build_document_root_index(llm, &doc.filename, &page_summaries).await?;
+    let root_index = build_document_root_index(llm, &doc.filename, &page_summaries, &pages).await?;
 
     db::page_indexes::insert_document_index(&state.db, doc.id, &root_index).await?;
 
@@ -195,15 +197,65 @@ Rules:
 - relevance_keywords should include synonyms and related terms for better retrieval
 - key_themes should capture 3-7 high-level themes"#;
 
+/// Extract acronyms/abbreviations (2-6 uppercase letters) from page text.
+/// Returns a map of acronym -> set of page numbers where it appears.
+fn extract_acronyms_from_pages(pages: &[String]) -> HashMap<String, Vec<i64>> {
+    let re = Regex::new(r"\b[A-Z][A-Z0-9]{1,5}\b").unwrap();
+    // Common English words / noise to skip
+    let noise: HashSet<&str> = [
+        "THE", "AND", "FOR", "NOT", "BUT", "ARE", "WAS", "HAS", "HAD", "ALL",
+        "CAN", "HER", "HIS", "HOW", "ITS", "MAY", "NEW", "NOW", "OLD", "OUR",
+        "OUT", "OWN", "SAY", "SHE", "TOO", "USE", "WAY", "WHO", "BOY", "DID",
+        "GET", "HIM", "LET", "PUT", "RUN", "TOP", "YES", "YET", "II", "III",
+        "IV", "VI", "VII", "VIII", "IX", "XI", "XII", "OK",
+    ].into_iter().collect();
+
+    let mut acronyms: HashMap<String, Vec<i64>> = HashMap::new();
+
+    for (i, page_content) in pages.iter().enumerate() {
+        let page_num = (i + 1) as i64;
+        let mut seen_on_page: HashSet<String> = HashSet::new();
+
+        for m in re.find_iter(page_content) {
+            let term = m.as_str().to_string();
+            if !noise.contains(term.as_str()) && seen_on_page.insert(term.clone()) {
+                acronyms.entry(term).or_default().push(page_num);
+            }
+        }
+    }
+
+    acronyms
+}
+
+/// Merge extracted acronyms into the LLM-generated entity_index.
+fn merge_acronyms_into_index(index: &mut serde_json::Value, acronyms: &HashMap<String, Vec<i64>>) {
+    let entity_index = index
+        .as_object_mut()
+        .and_then(|obj| obj.entry("entity_index").or_insert_with(|| json!({})).as_object_mut());
+
+    if let Some(ei) = entity_index {
+        for (acronym, pages) in acronyms {
+            // Only add if LLM didn't already capture it (case-insensitive check)
+            let already_exists = ei.keys().any(|k| k.eq_ignore_ascii_case(acronym));
+            if !already_exists {
+                ei.insert(acronym.clone(), json!(pages));
+            }
+        }
+    }
+}
+
 async fn build_document_root_index(
     llm: &LlmClient,
     filename: &str,
     page_summaries: &[serde_json::Value],
+    pages: &[String],
 ) -> Result<serde_json::Value, BoxErr> {
     let summaries_text = serde_json::to_string_pretty(page_summaries)?;
     let user_prompt = format!(
         "Document: {filename}\n\nPage summaries:\n{summaries_text}\n\nCreate the root index for this document."
     );
+
+    let acronyms = extract_acronyms_from_pages(pages);
 
     match llm.complete_json(ROOT_INDEX_SYSTEM, &user_prompt).await {
         Ok(mut index) => {
@@ -211,16 +263,20 @@ async fn build_document_root_index(
                 obj.insert("filename".into(), json!(filename));
                 obj.insert("page_count".into(), json!(page_summaries.len()));
             }
+            merge_acronyms_into_index(&mut index, &acronyms);
             Ok(index)
         }
         Err(e) => {
             tracing::warn!(error = %e, "LLM root index failed, using fallback");
-            Ok(json!({
+            let mut fallback = json!({
                 "filename": filename,
                 "page_count": page_summaries.len(),
                 "summary": "Index generation failed - fallback mode",
                 "pages": page_summaries,
-            }))
+                "entity_index": {},
+            });
+            merge_acronyms_into_index(&mut fallback, &acronyms);
+            Ok(fallback)
         }
     }
 }

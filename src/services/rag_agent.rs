@@ -75,7 +75,7 @@ impl Tool for SearchIndexTool {
         "search_index"
     }
     fn description(&self) -> &str {
-        "Search the document index tree to find relevant pages. Provide a query and optionally a document_id to search within a specific document. Returns the document's root index with page summaries, themes, and entity index so you can reason about which pages to read."
+        "Search for relevant pages across indexed documents. Returns matching entities and page_map sections scored by keyword relevance. Use specific terms, acronyms, and keywords for best results. Optionally scope to a single document_id."
     }
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
@@ -94,7 +94,9 @@ impl Tool for SearchIndexTool {
         })
     }
     async fn call(&self, args: serde_json::Value) -> McResult<serde_json::Value> {
-        let _query = args["query"].as_str().unwrap_or("");
+        let query = args["query"].as_str().unwrap_or("");
+        let query_lower = query.to_lowercase();
+        let query_words: Vec<&str> = query_lower.split_whitespace().collect();
         let doc_id = args["document_id"].as_str();
 
         let indexes = if let Some(id_str) = doc_id {
@@ -112,7 +114,6 @@ impl Tool for SearchIndexTool {
                 None => vec![],
             }
         } else {
-            // Scoped to this KB
             db::page_indexes::get_document_indexes_for_kb(&self.db, self.kb_id)
                 .await
                 .map_err(|e| GraphError::Node {
@@ -121,17 +122,152 @@ impl Tool for SearchIndexTool {
                 })?
         };
 
-        let results: Vec<serde_json::Value> = indexes
-            .into_iter()
-            .map(|idx| {
-                json!({
+        let mut all_hits: Vec<serde_json::Value> = Vec::new();
+
+        for idx in &indexes {
+            let doc_id_str = idx.document_id.to_string();
+
+            // Score entity_index matches (exact entity name matching)
+            let mut entity_hits: Vec<serde_json::Value> = Vec::new();
+            if let Some(entity_index) = idx.root_index.get("entity_index").and_then(|v| v.as_object()) {
+                for (entity_name, pages) in entity_index {
+                    let entity_lower = entity_name.to_lowercase();
+                    // Match if any query word matches entity name or entity contains query term
+                    let matched = query_words.iter().any(|w| {
+                        entity_lower.contains(w) || w.contains(entity_lower.as_str())
+                    });
+                    if matched {
+                        entity_hits.push(json!({
+                            "entity": entity_name,
+                            "pages": pages,
+                        }));
+                    }
+                }
+            }
+
+            // Score page_map entries by keyword overlap
+            let mut page_map_hits: Vec<serde_json::Value> = Vec::new();
+            if let Some(page_map) = idx.root_index.get("page_map").and_then(|v| v.as_array()) {
+                for entry in page_map {
+                    let theme = entry.get("theme").and_then(|v| v.as_str()).unwrap_or("");
+                    let keywords: Vec<&str> = entry
+                        .get("relevance_keywords")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| arr.iter().filter_map(|k| k.as_str()).collect())
+                        .unwrap_or_default();
+
+                    let theme_lower = theme.to_lowercase();
+                    let keywords_lower: String = keywords.join(" ").to_lowercase();
+                    let searchable = format!("{} {}", theme_lower, keywords_lower);
+
+                    let score: usize = query_words
+                        .iter()
+                        .filter(|w| searchable.contains(*w))
+                        .count();
+
+                    if score > 0 {
+                        page_map_hits.push(json!({
+                            "theme": theme,
+                            "pages": entry.get("pages"),
+                            "relevance_keywords": keywords,
+                            "score": score,
+                        }));
+                    }
+                }
+            }
+
+            // Sort page_map hits by score descending
+            page_map_hits.sort_by(|a, b| {
+                let sa = a["score"].as_u64().unwrap_or(0);
+                let sb = b["score"].as_u64().unwrap_or(0);
+                sb.cmp(&sa)
+            });
+
+            if !entity_hits.is_empty() || !page_map_hits.is_empty() {
+                let summary = idx.root_index.get("summary").and_then(|v| v.as_str()).unwrap_or("");
+                all_hits.push(json!({
+                    "document_id": doc_id_str,
+                    "document_summary": summary,
+                    "entity_matches": entity_hits,
+                    "page_map_matches": page_map_hits,
+                }));
+            }
+        }
+
+        // If no filtered hits, return summary-level info so agent knows what's available
+        if all_hits.is_empty() {
+            let summaries: Vec<serde_json::Value> = indexes
+                .iter()
+                .map(|idx| json!({
                     "document_id": idx.document_id.to_string(),
-                    "root_index": idx.root_index,
+                    "summary": idx.root_index.get("summary").and_then(|v| v.as_str()).unwrap_or(""),
+                    "key_themes": idx.root_index.get("key_themes").cloned().unwrap_or(json!([])),
+                }))
+                .collect();
+            return Ok(json!({
+                "matches": [],
+                "no_direct_matches": true,
+                "hint": "No entity or keyword matches found. Try broader terms, or use read_page to scan specific pages. Here are the available documents:",
+                "available_documents": summaries,
+            }));
+        }
+
+        Ok(json!({ "matches": all_hits }))
+    }
+}
+
+struct SearchPagesTool {
+    db: PgPool,
+    kb_id: Uuid,
+}
+
+#[async_trait]
+impl Tool for SearchPagesTool {
+    fn name(&self) -> &str {
+        "search_pages"
+    }
+    fn description(&self) -> &str {
+        "Full-text search across actual page content. Use for specific terms, acronyms, names, or phrases that may not appear in the index metadata. Returns ranked snippets with highlighted matches."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query — supports natural language, exact phrases in quotes, and boolean operators (OR, -exclude)"
+                }
+            },
+            "required": ["query"]
+        })
+    }
+    async fn call(&self, args: serde_json::Value) -> McResult<serde_json::Value> {
+        let query = args["query"].as_str().unwrap_or("");
+        if query.trim().is_empty() {
+            return Ok(json!({ "error": "query is required" }));
+        }
+
+        let hits = db::page_indexes::search_pages_fts(&self.db, self.kb_id, query, 10)
+            .await
+            .map_err(|e| GraphError::Node {
+                node: "search_pages".into(),
+                message: e.to_string(),
+            })?;
+
+        let results: Vec<serde_json::Value> = hits
+            .into_iter()
+            .map(|h| {
+                json!({
+                    "document_id": h.document_id.to_string(),
+                    "filename": h.filename,
+                    "page_num": h.page_num,
+                    "rank": h.rank,
+                    "snippet": h.snippet,
                 })
             })
             .collect();
 
-        Ok(json!({ "indexes": results, "count": results.len() }))
+        Ok(json!({ "results": results, "count": results.len() }))
     }
 }
 
@@ -215,19 +351,23 @@ fn build_system_prompt(kb: &Knowledgebase) -> String {
     }
 
     prompt.push_str(
-        r#"Your retrieval process follows the PageIndex method:
-1. First, use `list_documents` to see what documents are available
-2. Use `search_index` to examine document tree indexes and identify relevant pages
-3. Reason about the index structure: look at themes, page_map, entity_index, and page summaries to decide which pages contain the answer
-4. Use `read_page` to retrieve the full content of the most relevant pages
-5. Synthesize an answer from the retrieved content
+        r#"You have two complementary search tools — use BOTH for best results:
+
+1. `search_index` — searches document metadata (entity index, page themes, keywords). Good for finding which sections/topics cover a subject.
+2. `search_pages` — full-text search on actual page content. Good for specific terms, acronyms, names, exact phrases, and anything the index may have missed.
+
+Retrieval process:
+1. Run `search_index` AND `search_pages` in parallel with keywords from the user's question.
+2. Review results from both — entity matches, page_map hits, and content snippets.
+3. Use `read_page` to get full content of the most relevant pages identified by either tool.
+4. Synthesize an answer from the retrieved content.
+5. If no matches, try synonyms, broader terms, or `list_documents` to browse available docs.
 
 Important:
-- Always cite your sources: mention the document filename and page number
+- Always cite sources: mention document filename and page number
 - If information spans multiple pages, read all relevant pages before answering
-- If no relevant content is found, say so honestly
-- Your reasoning path through the index tree should be traceable — explain why you chose to read specific pages
-- Be concise but thorough in your answers"#,
+- If no relevant content is found, say so honestly — do not guess
+- Prefer fewer, targeted tool calls over exhaustive scanning"#,
     );
 
     prompt
@@ -250,6 +390,7 @@ impl RagAgent {
         let registry = ToolRegistry::new()
             .register(ListDocumentsTool { db: db.clone(), kb_id })
             .register(SearchIndexTool { db: db.clone(), kb_id })
+            .register(SearchPagesTool { db: db.clone(), kb_id })
             .register(ReadPageTool { db, kb_id });
 
         let system_prompt = build_system_prompt(kb);

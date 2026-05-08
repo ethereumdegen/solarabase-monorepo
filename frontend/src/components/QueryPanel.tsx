@@ -13,6 +13,8 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
   // Load sessions on mount
   useEffect(() => {
@@ -33,9 +35,11 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       .catch(() => setMessages([]));
   }, [kbId, activeSessionId]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll only when user is near bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, loading]);
 
   const copyToClipboard = useCallback((text: string, id: string) => {
@@ -191,7 +195,16 @@ export function QueryPanel({ kbId }: { kbId: string }) {
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 overflow-y-auto space-y-4 pb-4 px-4">
+        <div
+          ref={scrollContainerRef}
+          onScroll={() => {
+            const el = scrollContainerRef.current;
+            if (el) {
+              isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            }
+          }}
+          className="flex-1 overflow-y-auto space-y-4 pb-4 px-4"
+        >
           {messages.length === 0 && !activeSessionId && (
             <div className="text-center py-20">
               <p className="text-white/30 text-lg">Ask a question about your documents</p>

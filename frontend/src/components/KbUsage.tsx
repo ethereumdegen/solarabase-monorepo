@@ -20,6 +20,12 @@ const PLAN_MEMBER_LIMITS: Record<string, number | null> = {
   team: null,
 };
 
+const PLAN_API_KEY_LIMITS: Record<string, number | null> = {
+  free: 3,
+  pro: 10,
+  team: null,
+};
+
 const PLAN_FILE_SIZE: Record<string, string> = {
   free: '100 MB',
   pro: '500 MB',
@@ -87,6 +93,7 @@ export function KbUsage({ kbId }: { kbId: string }) {
   const queryLimit = PLAN_QUERY_LIMITS[plan] ?? null;
   const docLimit = PLAN_DOC_LIMITS[plan] ?? null;
   const memberLimit = PLAN_MEMBER_LIMITS[plan] ?? null;
+  const apiKeyLimit = PLAN_API_KEY_LIMITS[plan] ?? null;
 
   return (
     <div className="space-y-6">
@@ -142,7 +149,7 @@ export function KbUsage({ kbId }: { kbId: string }) {
           <UsageBar
             label="API keys"
             used={apiKeyCount}
-            limit={null}
+            limit={apiKeyLimit}
             color="amber"
           />
         )}
@@ -161,6 +168,7 @@ export function KbUsage({ kbId }: { kbId: string }) {
                 <p>{PLAN_QUERY_LIMITS[tier]?.toLocaleString() || 'Unlimited'} queries/mo</p>
                 <p>{PLAN_DOC_LIMITS[tier] || 'Unlimited'} docs/KB</p>
                 <p>{PLAN_MEMBER_LIMITS[tier] || 'Unlimited'} members</p>
+                <p>{PLAN_API_KEY_LIMITS[tier] || 'Unlimited'} API keys</p>
                 <p>{PLAN_FILE_SIZE[tier]} max file</p>
               </div>
             </div>

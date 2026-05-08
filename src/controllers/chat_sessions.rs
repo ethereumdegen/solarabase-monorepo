@@ -9,6 +9,8 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
+const MAX_MESSAGE_LENGTH: usize = 32_000;
+
 #[derive(Deserialize)]
 pub struct CreateSession {
     pub title: Option<String>,
@@ -20,6 +22,11 @@ pub async fn create_session(
     State(state): State<AppState>,
     Json(req): Json<CreateSession>,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    if let Some(ref t) = req.title {
+        if t.len() > 200 {
+            return Err(AppError::BadRequest("title must be at most 200 characters".into()));
+        }
+    }
     let title = req.title.as_deref().unwrap_or("New Chat");
     let session = db::chat_sessions::create_session(
         &state.db,
@@ -85,6 +92,12 @@ pub async fn send_message(
         .ok_or_else(|| AppError::NotFound("session not found".into()))?;
     if session.kb_id != kb_access.kb.id || session.user_id != kb_access.user.id {
         return Err(AppError::NotFound("session not found".into()));
+    }
+
+    if req.content.trim().is_empty() || req.content.len() > MAX_MESSAGE_LENGTH {
+        return Err(AppError::BadRequest(
+            format!("message must be 1-{MAX_MESSAGE_LENGTH} characters"),
+        ));
     }
 
     // Check limit before saving anything

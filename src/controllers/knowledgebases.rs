@@ -8,7 +8,7 @@ use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::middleware::plan_limits;
 use crate::models::knowledgebase::KbRole;
-use crate::services::s3;
+use crate::services::{audit, s3};
 use crate::state::AppState;
 
 fn validate_slug(slug: &str) -> AppResult<()> {
@@ -50,6 +50,11 @@ pub async fn create(
         return Err(AppError::BadRequest("name must be 1-100 characters".into()));
     }
     validate_slug(&req.slug)?;
+    if let Some(ref desc) = req.description {
+        if desc.len() > 500 {
+            return Err(AppError::BadRequest("description must be at most 500 characters".into()));
+        }
+    }
 
     // Users can have 1 free KB + unlimited paid KBs.
     // Block creation only if all existing KBs are on the free tier.
@@ -80,6 +85,11 @@ pub async fn create(
 
     // Create a free subscription for the new KB
     db::subscriptions::get_or_create_free(&state.db, kb.id, user.id).await?;
+
+    audit::log(
+        state.db.clone(), Some(user.id), "create_kb", "knowledgebase", Some(kb.id),
+        Some(serde_json::json!({ "slug": kb.slug })),
+    );
 
     Ok((StatusCode::CREATED, Json(serde_json::json!(kb))))
 }
@@ -116,6 +126,11 @@ pub async fn delete(
     // Delete from DB (cascades to documents, page_indexes, document_indexes, api_keys, chat_sessions)
     db::knowledgebases::delete(&state.db, kb_access.kb.id).await?;
 
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "delete_kb", "knowledgebase", Some(kb_access.kb.id),
+        Some(serde_json::json!({ "docs_deleted": docs.len() })),
+    );
+
     tracing::info!(kb_id = %kb_access.kb.id, docs_deleted = docs.len(), "knowledgebase deleted");
     Ok(StatusCode::NO_CONTENT)
 }
@@ -135,12 +150,21 @@ pub async fn invite(
     if !kb_access.can_admin() {
         return Err(AppError::Forbidden("admin required to invite".into()));
     }
+    if req.email.trim().is_empty() || req.email.len() > 254 {
+        return Err(AppError::BadRequest("invalid email".into()));
+    }
 
     plan_limits::check_member_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     let role = req.role.unwrap_or(KbRole::Editor);
     let token = hex::encode(rand::random::<[u8; 16]>());
     let inv = db::invitations::create(&state.db, kb_access.kb.id, &req.email, &role, kb_access.user.id, &token).await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "invite_member", "knowledgebase", Some(kb_access.kb.id),
+        Some(serde_json::json!({ "email": req.email, "role": role })),
+    );
+
     Ok((StatusCode::CREATED, Json(serde_json::json!(inv))))
 }
 

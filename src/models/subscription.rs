@@ -70,6 +70,14 @@ impl PlanTier {
         }
     }
 
+    pub fn max_api_keys(&self) -> Option<i64> {
+        match self {
+            PlanTier::Free => Some(3),
+            PlanTier::Pro => Some(10),
+            PlanTier::Team => None,
+        }
+    }
+
     pub fn max_file_size_bytes(&self) -> i64 {
         match self {
             PlanTier::Free => 100 * 1024 * 1024,

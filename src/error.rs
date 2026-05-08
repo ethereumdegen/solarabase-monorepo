@@ -19,6 +19,9 @@ pub enum AppError {
     #[error("plan limit exceeded: {0}")]
     PlanLimitExceeded(String),
 
+    #[error("too many requests")]
+    RateLimited,
+
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 
@@ -37,6 +40,7 @@ impl IntoResponse for AppError {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized".into()),
             AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
             AppError::PlanLimitExceeded(msg) => (StatusCode::FORBIDDEN, msg.clone()),
+            AppError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "too many requests".into()),
             AppError::Database(e) => {
                 tracing::error!("database error: {e}");
                 (

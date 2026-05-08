@@ -8,6 +8,8 @@ use crate::auth::api_key::generate_api_key;
 use crate::auth::extractors::KbAccess;
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::middleware::plan_limits;
+use crate::services::audit;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -50,12 +52,17 @@ pub async fn create(
     State(state): State<AppState>,
     Json(req): Json<CreateApiKey>,
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
+    if req.name.trim().is_empty() || req.name.len() > 100 {
+        return Err(AppError::BadRequest("name must be 1-100 characters".into()));
+    }
     if kb_access.via_api_key {
         return Err(AppError::Forbidden("cannot create API keys via API key auth".into()));
     }
     if !kb_access.can_admin() {
         return Err(AppError::Forbidden("admin required".into()));
     }
+
+    plan_limits::check_api_key_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     let generated = generate_api_key();
     let key = db::api_keys::create(
@@ -67,6 +74,11 @@ pub async fn create(
         kb_access.user.id,
     )
     .await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "create_api_key", "api_key", Some(key.id),
+        Some(serde_json::json!({ "kb_id": kb_access.kb.id, "name": req.name })),
+    );
 
     Ok((
         StatusCode::CREATED,
@@ -94,5 +106,11 @@ pub async fn revoke(
     }
 
     db::api_keys::revoke(&state.db, key_id).await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "revoke_api_key", "api_key", Some(key_id),
+        Some(serde_json::json!({ "kb_id": kb_access.kb.id })),
+    );
+
     Ok(StatusCode::NO_CONTENT)
 }

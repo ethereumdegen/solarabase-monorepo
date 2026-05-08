@@ -112,6 +112,24 @@ pub async fn list_all(pool: &PgPool) -> AppResult<Vec<Knowledgebase>> {
     Ok(kbs)
 }
 
+pub async fn list_paginated(pool: &PgPool, limit: i64, offset: i64) -> AppResult<Vec<Knowledgebase>> {
+    let kbs = sqlx::query_as::<_, Knowledgebase>(
+        "SELECT * FROM knowledgebases ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(kbs)
+}
+
+pub async fn count_all(pool: &PgPool) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM knowledgebases")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}
+
 pub async fn count_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<i64> {
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM knowledgebases WHERE owner_id = $1",

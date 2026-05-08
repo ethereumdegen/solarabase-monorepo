@@ -30,8 +30,13 @@ pub async fn create(
     }
 
     let name = req.name.trim().to_string();
-    if name.is_empty() {
-        return Err(AppError::BadRequest("folder name is required".into()));
+    if name.is_empty() || name.len() > 200 {
+        return Err(AppError::BadRequest("folder name must be 1-200 characters".into()));
+    }
+    if let Some(ref cat) = req.category {
+        if cat.len() > 100 {
+            return Err(AppError::BadRequest("category must be at most 100 characters".into()));
+        }
     }
 
     // Validate parent belongs to same KB
@@ -99,8 +104,8 @@ pub async fn rename(
     }
 
     let name = req.name.trim().to_string();
-    if name.is_empty() {
-        return Err(AppError::BadRequest("folder name is required".into()));
+    if name.is_empty() || name.len() > 200 {
+        return Err(AppError::BadRequest("folder name must be 1-200 characters".into()));
     }
 
     let updated = db::folders::rename(&state.db, id, &name).await?;

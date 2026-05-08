@@ -57,6 +57,19 @@ pub async fn check_member_limit(pool: &PgPool, kb_id: Uuid, owner_id: Uuid) -> A
     Ok(())
 }
 
+pub async fn check_api_key_limit(pool: &PgPool, kb_id: Uuid, owner_id: Uuid) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_kb(pool, kb_id, owner_id).await?;
+    if let Some(max) = plan.max_api_keys() {
+        let count = db::api_keys::count_for_kb(pool, kb_id).await?;
+        if count >= max {
+            return Err(AppError::PlanLimitExceeded(format!(
+                "API key limit reached ({max} per KB). Upgrade your plan for more."
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub async fn check_file_size(pool: &PgPool, kb_id: Uuid, owner_id: Uuid, size_bytes: i64) -> AppResult<()> {
     let plan = db::subscriptions::get_plan_for_kb(pool, kb_id, owner_id).await?;
     let max = plan.max_file_size_bytes();

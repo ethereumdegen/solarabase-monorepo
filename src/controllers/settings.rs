@@ -8,6 +8,7 @@ use crate::auth::extractors::KbAccess;
 use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::models::knowledgebase::KbRole;
+use crate::services::audit;
 use crate::state::AppState;
 
 /// GET /api/kb/:kb_id/settings
@@ -32,6 +33,22 @@ pub async fn update_settings(
 ) -> AppResult<Json<serde_json::Value>> {
     require_kb_admin(&kb_access)?;
 
+    if let Some(ref name) = req.name {
+        if name.trim().is_empty() || name.len() > 100 {
+            return Err(AppError::BadRequest("name must be 1-100 characters".into()));
+        }
+    }
+    if let Some(ref desc) = req.description {
+        if desc.len() > 500 {
+            return Err(AppError::BadRequest("description must be at most 500 characters".into()));
+        }
+    }
+    if let Some(ref color) = req.accent_color {
+        if color.len() > 20 {
+            return Err(AppError::BadRequest("accent_color must be at most 20 characters".into()));
+        }
+    }
+
     let kb = &kb_access.kb;
     let updated = db::knowledgebases::update(
         &state.db,
@@ -41,6 +58,10 @@ pub async fn update_settings(
         req.accent_color.as_deref().unwrap_or(&kb.accent_color),
     )
     .await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "update_settings", "knowledgebase", Some(kb_access.kb.id), None,
+    );
 
     Ok(Json(serde_json::json!(updated)))
 }
@@ -75,6 +96,10 @@ pub async fn add_kb_member(
 ) -> AppResult<(StatusCode, Json<serde_json::Value>)> {
     require_kb_admin(&kb_access)?;
 
+    if req.email.trim().is_empty() || req.email.len() > 254 {
+        return Err(AppError::BadRequest("invalid email".into()));
+    }
+
     // Find user by email
     let target_user = db::users::get_by_email(&state.db, &req.email)
         .await?
@@ -82,6 +107,11 @@ pub async fn add_kb_member(
 
     let role = req.role.unwrap_or(KbRole::Viewer);
     let membership = db::knowledgebases::add_kb_member(&state.db, kb_access.kb.id, target_user.id, &role).await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "add_member", "knowledgebase", Some(kb_access.kb.id),
+        Some(serde_json::json!({ "target_email": req.email, "role": role })),
+    );
 
     Ok((StatusCode::CREATED, Json(serde_json::json!(membership))))
 }
@@ -94,5 +124,11 @@ pub async fn remove_kb_member(
 ) -> AppResult<StatusCode> {
     require_kb_admin(&kb_access)?;
     db::knowledgebases::remove_kb_member(&state.db, kb_access.kb.id, user_id).await?;
+
+    audit::log(
+        state.db.clone(), Some(kb_access.user.id), "remove_member", "knowledgebase", Some(kb_access.kb.id),
+        Some(serde_json::json!({ "removed_user_id": user_id })),
+    );
+
     Ok(StatusCode::NO_CONTENT)
 }

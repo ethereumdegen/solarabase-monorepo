@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod indexer;
 pub mod llm;
 pub mod rag_agent;

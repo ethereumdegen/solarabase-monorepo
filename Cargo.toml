@@ -5,6 +5,9 @@ edition = "2024"
 default-run = "solarabase"
 
 [dependencies]
+# Text
+regex = "1"
+
 # Web
 axum = { version = "0.8", features = ["multipart"] }
 axum-extra = { version = "0.10", features = ["cookie"] }
@@ -44,6 +47,9 @@ rand = "0.9"
 
 # Stripe
 hmac = "0.12"
+
+# Rate limiting
+governor = "0.8"
 
 # Config & logging
 dotenvy = "0.15"

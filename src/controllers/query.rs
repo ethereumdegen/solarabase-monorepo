@@ -20,9 +20,13 @@ pub async fn query(
     State(state): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
+    if req.question.trim().is_empty() || req.question.len() > 32_000 {
+        return Err(AppError::BadRequest("question must be 1-32000 characters".into()));
+    }
+
     plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
-    tracing::info!(kb_id = %kb_access.kb.id, question = %req.question, "query received");
+    tracing::info!(kb_id = %kb_access.kb.id, "query received");
 
     let agent = state
         .rag_cache

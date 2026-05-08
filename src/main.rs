@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::routing::{delete, get, post, put};
-use axum::Router;
+use axum::{Extension, Router};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -86,6 +86,11 @@ async fn main() {
         }
     });
 
+    // Rate limiters (per-IP): auth=tight, api=moderate, webhook=separate
+    let auth_limiter = middleware::rate_limit::create_limiter(5, 10);
+    let api_limiter = middleware::rate_limit::create_limiter(20, 40);
+    let webhook_limiter = middleware::rate_limit::create_limiter(10, 20);
+
     // Routes
     let auth_routes = Router::new()
         .route("/auth/google", get(controllers::auth::google_redirect))
@@ -93,7 +98,9 @@ async fn main() {
             "/auth/google/callback",
             get(controllers::auth::google_callback),
         )
-        .route("/auth/dev-login", post(controllers::auth::dev_login));
+        .route("/auth/dev-login", post(controllers::auth::dev_login))
+        .layer(axum::middleware::from_fn(middleware::rate_limit::check_rate_limit))
+        .layer(Extension(auth_limiter));
 
     let api_routes = Router::new()
         // Health
@@ -246,19 +253,33 @@ async fn main() {
             get(controllers::admin::list_settings)
                 .put(controllers::admin::update_setting),
         )
+        .route(
+            "/api/admin/audit-logs",
+            get(controllers::admin::list_audit_logs),
+        )
         // Invitations
         .route(
             "/api/invitations/accept",
             post(controllers::knowledgebases::accept_invite),
-        )
-        // Stripe webhook
+        );
+
+    // Stripe webhook — separate rate limiter
+    let webhook_routes = Router::new()
         .route(
             "/webhooks/stripe",
             post(controllers::webhooks::stripe_webhook),
-        );
+        )
+        .layer(axum::middleware::from_fn(middleware::rate_limit::check_rate_limit))
+        .layer(Extension(webhook_limiter));
+
+    // Apply API rate limiter
+    let api_routes = api_routes
+        .layer(axum::middleware::from_fn(middleware::rate_limit::check_rate_limit))
+        .layer(Extension(api_limiter));
 
     let app = auth_routes
         .merge(api_routes)
+        .merge(webhook_routes)
         .with_state(state)
         .fallback_service(
             ServeDir::new("frontend/dist")

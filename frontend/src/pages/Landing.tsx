@@ -95,7 +95,7 @@ export function Landing() {
         {/* Banner */}
         <section className="w-full overflow-hidden">
           <img
-            src="/banner-tech.webp"
+            src="/banner-tech.png"
             alt=""
             className="w-full h-48 md:h-64 lg:h-80 object-cover object-center opacity-80"
           />

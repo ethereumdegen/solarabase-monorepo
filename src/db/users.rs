@@ -78,3 +78,21 @@ pub async fn list_all(pool: &PgPool) -> AppResult<Vec<User>> {
     .await?;
     Ok(users)
 }
+
+pub async fn list_paginated(pool: &PgPool, limit: i64, offset: i64) -> AppResult<Vec<User>> {
+    let users = sqlx::query_as::<_, User>(
+        "SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(users)
+}
+
+pub async fn count(pool: &PgPool) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}

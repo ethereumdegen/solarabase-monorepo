@@ -20,9 +20,13 @@ pub async fn retrieve(
     State(state): State<AppState>,
     Json(req): Json<RetrieveRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
+    if req.query.trim().is_empty() || req.query.len() > 32_000 {
+        return Err(AppError::BadRequest("query must be 1-32000 characters".into()));
+    }
+
     plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
-    let max_pages = req.max_pages.unwrap_or(10);
+    let max_pages = req.max_pages.unwrap_or(10).min(100);
     let documents = state
         .rag_cache
         .retrieve(kb_access.kb.id, &req.query, max_pages)

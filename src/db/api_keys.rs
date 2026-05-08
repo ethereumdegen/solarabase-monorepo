@@ -39,6 +39,16 @@ pub async fn list_for_kb(pool: &PgPool, kb_id: Uuid) -> AppResult<Vec<ApiKey>> {
     Ok(keys)
 }
 
+pub async fn count_for_kb(pool: &PgPool, kb_id: Uuid) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM api_keys WHERE kb_id = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())",
+    )
+    .bind(kb_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
+}
+
 pub async fn revoke(pool: &PgPool, id: Uuid) -> AppResult<bool> {
     let result = sqlx::query(
         "UPDATE api_keys SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",

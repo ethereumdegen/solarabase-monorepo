@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { updateKbSettings, listApiKeys, createApiKey, revokeApiKey, listKbMembers, addKbMember, removeKbMember } from '../api';
-import type { Knowledgebase, ApiKeyInfo, KbMember, KbRole } from '../types';
+import { updateKbSettings, listKbMembers, addKbMember, removeKbMember } from '../api';
+import type { Knowledgebase, KbMember, KbRole } from '../types';
 import { useAuth } from '../auth';
 import { KbBillingCard } from './KbBillingCard';
 
@@ -18,12 +18,6 @@ export function KbSettings({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // API Keys
-  const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [keyError, setKeyError] = useState<string | null>(null);
-
   // KB Members
   const [kbMembers, setKbMembers] = useState<KbMember[]>([]);
   const [memberEmail, setMemberEmail] = useState('');
@@ -31,7 +25,6 @@ export function KbSettings({
   const [memberError, setMemberError] = useState<string | null>(null);
 
   useEffect(() => {
-    listApiKeys(kb.id).then(setApiKeys).catch(() => {});
     listKbMembers(kb.id).then(setKbMembers).catch(() => {});
   }, [kb.id]);
 
@@ -47,19 +40,6 @@ export function KbSettings({
       setSaveError(e.message || 'Failed to save');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleCreateKey = async () => {
-    if (!newKeyName.trim()) return;
-    setKeyError(null);
-    try {
-      const result = await createApiKey(kb.id, newKeyName.trim());
-      setCreatedKey(result.key);
-      setNewKeyName('');
-      listApiKeys(kb.id).then(setApiKeys);
-    } catch (e: any) {
-      setKeyError(e.message || 'Failed to create key');
     }
   };
 
@@ -82,16 +62,6 @@ export function KbSettings({
       listKbMembers(kb.id).then(setKbMembers);
     } catch (e: any) {
       setMemberError(e.message || 'Failed to remove member');
-    }
-  };
-
-  const handleRevokeKey = async (keyId: string) => {
-    if (!confirm('Revoke this API key?')) return;
-    try {
-      await revokeApiKey(kb.id, keyId);
-      listApiKeys(kb.id).then(setApiKeys);
-    } catch (e: any) {
-      setKeyError(e.message || 'Failed to revoke key');
     }
   };
 
@@ -187,51 +157,6 @@ export function KbSettings({
 
       {/* Plan & Usage */}
       <KbBillingCard kbId={kb.id} />
-
-      {/* API Keys */}
-      <div className="bg-[#111] border border-white/5 rounded-xl p-6">
-        <h2 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">API Keys</h2>
-
-        {createdKey && (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
-            <p className="text-xs text-green-400 mb-1 font-medium">Key created! Copy it now - it won't be shown again.</p>
-            <code className="text-xs bg-white/5 px-2 py-1 rounded text-white/70 select-all">{createdKey}</code>
-            <button onClick={() => setCreatedKey(null)} className="ml-3 text-xs text-green-400/60 hover:text-green-400">Dismiss</button>
-          </div>
-        )}
-
-        {keyError && <p className="text-xs text-red-400 mb-3">{keyError}</p>}
-
-        <div className="flex gap-2 mb-4">
-          <input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateKey()}
-            placeholder="Key name (e.g. production)"
-            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-white/25 focus:outline-none focus:ring-1 focus:ring-white/20" />
-          <button onClick={handleCreateKey}
-            className="px-4 py-2 bg-white/10 text-white rounded-lg text-sm font-medium hover:bg-white/15 transition-colors">
-            Generate
-          </button>
-        </div>
-
-        {apiKeys.length === 0 ? (
-          <p className="text-sm text-white/25">No API keys yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {apiKeys.map((k) => (
-              <div key={k.id} className="flex items-center justify-between px-3 py-2 bg-white/5 rounded-lg">
-                <div>
-                  <span className="text-sm font-medium text-white/70">{k.name}</span>
-                  <span className="text-xs text-white/25 ml-2">{k.key_prefix}...</span>
-                </div>
-                <button onClick={() => handleRevokeKey(k.id)}
-                  className="text-xs text-red-400/60 hover:text-red-400">
-                  Revoke
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

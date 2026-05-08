@@ -25,11 +25,11 @@ export function KnowledgebaseView() {
   }, [kbId]);
 
   if (error) {
-    return <Layout><div className="text-center py-20"><p className="text-red-500 mb-4">{error}</p><Link to="/dashboard" className="text-sm text-gray-500 hover:text-gray-900">Back to Dashboard</Link></div></Layout>;
+    return <Layout><div className="text-center py-20"><p className="text-red-400 mb-4">{error}</p><Link to="/dashboard" className="text-sm text-white/30 hover:text-white/60">Back to Dashboard</Link></div></Layout>;
   }
 
   if (!kbId || !kb) {
-    return <Layout><div className="text-gray-400 text-center py-20">Loading...</div></Layout>;
+    return <Layout><div className="text-white/30 text-center py-20">Loading...</div></Layout>;
   }
 
   return (
@@ -38,10 +38,10 @@ export function KnowledgebaseView() {
         <div className="mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Link to="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 mb-1 inline-block">&larr; Dashboard</Link>
-              <h1 className="text-2xl font-bold">{kb.name}</h1>
+              <Link to="/dashboard" className="text-xs text-white/30 hover:text-white/50 mb-1 inline-block">&larr; Dashboard</Link>
+              <h1 className="text-2xl font-bold text-white/90">{kb.name}</h1>
               {kb.description && (
-                <p className="text-sm text-gray-400 mt-1">{kb.description}</p>
+                <p className="text-sm text-white/30 mt-1">{kb.description}</p>
               )}
             </div>
           </div>
@@ -50,10 +50,10 @@ export function KnowledgebaseView() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize whitespace-nowrap ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize whitespace-nowrap ${
                   tab === t
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/30 hover:text-white/60 hover:bg-white/5'
                 }`}
               >
                 {t}

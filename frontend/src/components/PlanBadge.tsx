@@ -14,9 +14,9 @@ export function PlanBadge({ workspaceId }: { workspaceId: string }) {
   if (!plan) return null;
 
   const colors: Record<PlanTier, string> = {
-    free: 'bg-gray-100 text-gray-500',
-    pro: 'bg-blue-100 text-blue-700',
-    team: 'bg-purple-100 text-purple-700',
+    free: 'bg-white/5 text-white/30',
+    pro: 'bg-blue-500/15 text-blue-400',
+    team: 'bg-purple-500/15 text-purple-400',
   };
 
   return (

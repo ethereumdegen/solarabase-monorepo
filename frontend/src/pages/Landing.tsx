@@ -1,68 +1,136 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { Footer } from '../components/Footer';
 
 export function Landing() {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-[#f0f0f3]">
-      <header className="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-tight">Solarabase</h1>
-        <div>
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
+      <header className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between w-full">
+        <h1 className="text-lg font-medium tracking-tight text-white/90">Solarabase</h1>
+        <nav className="flex items-center gap-6">
+          <Link to="/docs" className="text-sm text-white/40 hover:text-white/80 transition-colors">Docs</Link>
+          <Link to="/docs/api" className="text-sm text-white/40 hover:text-white/80 transition-colors">API</Link>
           {user ? (
-            <Link to="/dashboard" className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium">
+            <Link to="/dashboard" className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors">
               Dashboard
             </Link>
           ) : (
-            <Link to="/login" className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium">
+            <Link to="/login" className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors">
               Sign In
             </Link>
           )}
-        </div>
+        </nav>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-24 text-center">
-        <h2 className="text-5xl font-bold tracking-tight text-gray-900 mb-6">
-          Knowledgebase-as-a-Service
-        </h2>
-        <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12">
-          Upload documents, auto-index with AI, and query with a RAG agent.
-          Multi-tenant, per-KB configuration, API keys for programmatic access.
-        </p>
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="max-w-4xl mx-auto px-6 pt-24 pb-32">
+          <div className="flex flex-wrap gap-2 mb-8">
+            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">RAG Agent</span>
+            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">Auto-Indexing</span>
+            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">API Access</span>
+          </div>
+          <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-8">
+            Knowledgebase<br />
+            <span className="text-white/30">as a Service</span>
+          </h2>
+          <p className="text-lg text-white/40 max-w-xl mb-12 leading-relaxed">
+            Upload documents, auto-index with AI, and query with a RAG agent.
+            Multi-tenant, per-KB configuration, API keys for programmatic access.
+          </p>
+          <div className="flex gap-4">
+            <Link
+              to="/login"
+              className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
+            >
+              Get Started Free
+              <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <Link
+              to="/docs"
+              className="px-6 py-3 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:border-white/30 hover:text-white/80 transition-colors"
+            >
+              Read the Docs
+            </Link>
+          </div>
+        </section>
 
-        <div className="flex justify-center gap-4">
-          <Link
-            to="/login"
-            className="px-8 py-3 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors"
-          >
-            Get Started Free
-          </Link>
-        </div>
+        {/* Features */}
+        <section className="border-t border-white/5">
+          <div className="max-w-6xl mx-auto px-6 py-24">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 rounded-2xl overflow-hidden">
+              <FeatureCard
+                tag="01"
+                title="Auto-Indexing"
+                description="Upload docs and they get split into pages, each indexed with AI-powered tree structures — summaries, entities, topics, relationships."
+              />
+              <FeatureCard
+                tag="02"
+                title="RAG Agent"
+                description="Each knowledgebase gets its own AI agent. Custom system prompts, model selection, and multi-turn conversations with citations."
+              />
+              <FeatureCard
+                tag="03"
+                title="API Access"
+                description="Generate API keys scoped per-KB. Use /retrieve for raw page retrieval or /query for full AI-synthesized answers."
+              />
+            </div>
+          </div>
+        </section>
 
-        <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <FeatureCard
-            title="Auto-Indexing"
-            description="Upload docs and they get indexed using AI-powered PageIndex tree structures."
-          />
-          <FeatureCard
-            title="Per-KB RAG Agent"
-            description="Each knowledgebase has its own AI agent with custom system prompts and model selection."
-          />
-          <FeatureCard
-            title="API Access"
-            description="Generate API keys. Use /retrieve for RAG-only or /query for full AI answers."
-          />
-        </div>
+        {/* How it works */}
+        <section className="border-t border-white/5">
+          <div className="max-w-6xl mx-auto px-6 py-24">
+            <h3 className="text-sm text-white/30 uppercase tracking-widest mb-12">How it works</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <Step n="01" title="Create" desc="Sign up and create a knowledgebase in seconds." />
+              <Step n="02" title="Upload" desc="Drop in PDFs, markdown, text files. Any docs." />
+              <Step n="03" title="Index" desc="AI auto-indexes every page into tree structures." />
+              <Step n="04" title="Query" desc="Ask questions via chat or API. Get cited answers." />
+            </div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="border-t border-white/5">
+          <div className="max-w-4xl mx-auto px-6 py-32 text-center">
+            <h3 className="text-3xl md:text-4xl font-bold mb-4">Start building today</h3>
+            <p className="text-white/40 mb-8">Free tier. No credit card required.</p>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
+            >
+              Get Started Free
+            </Link>
+          </div>
+        </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
 
-function FeatureCard({ title, description }: { title: string; description: string }) {
+function FeatureCard({ tag, title, description }: { tag: string; title: string; description: string }) {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm text-left">
-      <h3 className="font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-sm text-gray-500">{description}</p>
+    <div className="bg-[#0f0f0f] p-8 flex flex-col">
+      <span className="text-xs text-white/20 font-mono mb-6">{tag}</span>
+      <h3 className="text-lg font-semibold text-white/90 mb-3">{title}</h3>
+      <p className="text-sm text-white/40 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function Step({ n, title, desc }: { n: string; title: string; desc: string }) {
+  return (
+    <div>
+      <span className="text-xs text-white/20 font-mono">{n}</span>
+      <h4 className="text-white/90 font-medium mt-2 mb-2">{title}</h4>
+      <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
     </div>
   );
 }

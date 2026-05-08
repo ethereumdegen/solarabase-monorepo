@@ -42,15 +42,15 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f0f3] flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-sm p-10 max-w-sm w-full text-center">
-        <h1 className="text-2xl font-bold mb-2">Solarabase</h1>
-        <p className="text-gray-400 text-sm mb-8">Sign in to your account</p>
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="bg-[#111] border border-white/10 rounded-2xl p-10 max-w-sm w-full text-center">
+        <h1 className="text-2xl font-bold text-white mb-2">Solarabase</h1>
+        <p className="text-white/30 text-sm mb-8">Sign in to your account</p>
 
         {providers?.google && (
           <a
             href="/auth/google"
-            className="inline-flex items-center gap-3 px-6 py-3 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors w-full justify-center"
+            className="inline-flex items-center gap-3 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors w-full justify-center"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -63,21 +63,21 @@ export function Login() {
         )}
 
         {providers?.dev_login && (
-          <div className={providers?.google ? 'mt-6 border-t border-gray-100 pt-4' : ''}>
-            <p className="text-xs text-gray-400 mb-3">Dev mode (no OAuth configured)</p>
+          <div className={providers?.google ? 'mt-6 border-t border-white/10 pt-4' : ''}>
+            <p className="text-xs text-white/30 mb-3">Dev mode (no OAuth configured)</p>
             <input
               type="email"
               value={devEmail}
               onChange={(e) => setDevEmail(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleDevLogin()}
               placeholder="Email address"
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-white/30 mb-2 focus:outline-none focus:ring-1 focus:ring-white/30"
               autoFocus
             />
-            {devError && <p className="text-xs text-red-500 mb-2">{devError}</p>}
+            {devError && <p className="text-xs text-red-400 mb-2">{devError}</p>}
             <button
               onClick={handleDevLogin}
-              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+              className="w-full px-4 py-2 bg-white/10 text-white/70 rounded-lg text-sm font-medium hover:bg-white/15 transition-colors"
             >
               Sign in with email
             </button>

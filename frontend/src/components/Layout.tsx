@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { logout } from '../api';
+import { Footer } from './Footer';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -13,19 +14,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f0f3]">
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/dashboard" className="text-xl font-bold text-gray-900 tracking-tight">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
+      <header className="border-b border-white/5 sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link to="/dashboard" className="text-lg font-medium text-white/90 tracking-tight">
             Solarabase
           </Link>
           <div className="flex items-center gap-4">
             {user && (
               <>
-                <span className="text-sm text-gray-400">{user.email}</span>
+                <span className="text-sm text-white/30">{user.email}</span>
                 <button
                   onClick={handleLogout}
-                  className="text-sm text-gray-400 hover:text-gray-600"
+                  className="text-sm text-white/30 hover:text-white/60 transition-colors"
                 >
                   Sign Out
                 </button>
@@ -34,7 +35,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="px-6 py-8">{children}</main>
+      <main className="px-6 py-8 flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }

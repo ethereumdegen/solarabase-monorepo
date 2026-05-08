@@ -3,10 +3,10 @@ import { listDocuments, deleteDocument, reindexDocument, getDocumentContentUrl, 
 import type { Document } from '../types';
 
 const STATUS_COLORS: Record<string, string> = {
-  uploaded: 'bg-amber-100 text-amber-700',
-  processing: 'bg-blue-100 text-blue-700',
-  indexed: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-700',
+  uploaded: 'bg-amber-500/15 text-amber-400',
+  processing: 'bg-blue-500/15 text-blue-400',
+  indexed: 'bg-green-500/15 text-green-400',
+  failed: 'bg-red-500/15 text-red-400',
 };
 
 function formatBytes(bytes: number): string {
@@ -35,8 +35,8 @@ function Spinner() {
 function ProgressBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
-      <div className="bg-gray-900 h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+    <div className="w-full bg-white/5 rounded-full h-1.5 mt-1.5">
+      <div className="bg-white/40 h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -65,23 +65,23 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
   const isPdf = doc.mime_type === 'application/pdf';
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#111] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold truncate">{doc.filename}</h3>
-            <p className="text-xs text-gray-400">
+            <h3 className="text-lg font-semibold text-white/90 truncate">{doc.filename}</h3>
+            <p className="text-xs text-white/30">
               {formatBytes(doc.size_bytes)} · {doc.mime_type}
               {doc.page_count != null && ` · ${doc.page_count} pages`}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <a href={contentUrl} download={doc.filename}
-              className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+              className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 text-white/50 rounded-lg transition-colors">
               Download
             </a>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl px-2">&times;</button>
+            <button onClick={onClose} className="text-white/30 hover:text-white/60 text-xl px-2">&times;</button>
           </div>
         </div>
 
@@ -89,11 +89,11 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
         {doc.status === 'indexed' && (
           <div className="flex gap-1 px-6 pt-3">
             <button onClick={() => setTab('content')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === 'content' ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === 'content' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}>
               Content
             </button>
             <button onClick={() => setTab('pages')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === 'pages' ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === 'pages' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}>
               Index ({doc.page_count ?? 0} pages)
             </button>
           </div>
@@ -104,14 +104,14 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
           {tab === 'content' && (
             <>
               {isPdf ? (
-                <iframe src={contentUrl} className="w-full h-[70vh] rounded-lg border border-gray-100" />
+                <iframe src={contentUrl} className="w-full h-[70vh] rounded-lg border border-white/5" />
               ) : isText ? (
                 <TextPreview url={contentUrl} />
               ) : (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-white/30">
                   <p className="mb-3">Preview not available for {doc.mime_type}</p>
                   <a href={contentUrl} download={doc.filename}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium inline-block">
+                    className="px-4 py-2 bg-white/10 text-white rounded-lg text-sm font-medium inline-block hover:bg-white/15 transition-colors">
                     Download File
                   </a>
                 </div>
@@ -121,15 +121,15 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
 
           {tab === 'pages' && (
             <>
-              {loadingPages && <p className="text-gray-400 text-center py-8">Loading pages...</p>}
+              {loadingPages && <p className="text-white/30 text-center py-8">Loading pages...</p>}
               {rootIndex && (
-                <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">Document Summary</h4>
-                  <p className="text-sm text-gray-700">{rootIndex.summary}</p>
+                <div className="bg-white/5 rounded-xl p-4 mb-4">
+                  <h4 className="text-xs font-medium text-white/40 uppercase mb-2">Document Summary</h4>
+                  <p className="text-sm text-white/60">{rootIndex.summary}</p>
                   {rootIndex.key_themes && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {rootIndex.key_themes.map((t: string, i: number) => (
-                        <span key={i} className="px-2 py-0.5 bg-white rounded-md text-xs text-gray-600 border border-gray-200">{t}</span>
+                        <span key={i} className="px-2 py-0.5 bg-white/5 rounded-md text-xs text-white/40 border border-white/5">{t}</span>
                       ))}
                     </div>
                   )}
@@ -138,21 +138,21 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
               {pages && pages.length > 0 && (
                 <div className="space-y-3">
                   {pages.map((page) => (
-                    <details key={page.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                      <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                        <span className="text-sm font-medium">Page {page.page_num}</span>
+                    <details key={page.id} className="bg-white/5 rounded-xl border border-white/5 overflow-hidden">
+                      <summary className="px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors">
+                        <span className="text-sm font-medium text-white/70">Page {page.page_num}</span>
                         {page.tree_index?.summary && (
-                          <span className="text-xs text-gray-400 ml-2">{page.tree_index.summary.slice(0, 100)}...</span>
+                          <span className="text-xs text-white/30 ml-2">{page.tree_index.summary.slice(0, 100)}...</span>
                         )}
                       </summary>
-                      <div className="px-4 pb-3 border-t border-gray-50">
-                        <pre className="text-xs text-gray-600 whitespace-pre-wrap mt-2 max-h-60 overflow-auto">{page.content}</pre>
+                      <div className="px-4 pb-3 border-t border-white/5">
+                        <pre className="text-xs text-white/50 whitespace-pre-wrap mt-2 max-h-60 overflow-auto">{page.content}</pre>
                         {page.tree_index?.topics && (
                           <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-500 mb-1">Topics</p>
+                            <p className="text-xs font-medium text-white/40 mb-1">Topics</p>
                             <div className="flex flex-wrap gap-1">
                               {page.tree_index.topics.map((t: any, i: number) => (
-                                <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">{t.name}</span>
+                                <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-xs text-white/40">{t.name}</span>
                               ))}
                             </div>
                           </div>
@@ -162,7 +162,7 @@ function DocumentViewer({ kbId, doc, onClose }: { kbId: string; doc: Document; o
                   ))}
                 </div>
               )}
-              {pages && pages.length === 0 && <p className="text-gray-400 text-center py-8">No indexed pages yet.</p>}
+              {pages && pages.length === 0 && <p className="text-white/30 text-center py-8">No indexed pages yet.</p>}
             </>
           )}
         </div>
@@ -179,8 +179,8 @@ function TextPreview({ url }: { url: string }) {
       .then(setText)
       .catch(() => setText('Failed to load content'));
   }, [url]);
-  if (text === null) return <p className="text-gray-400 text-center py-8">Loading...</p>;
-  return <pre className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-xl p-4 max-h-[70vh] overflow-auto">{text}</pre>;
+  if (text === null) return <p className="text-white/30 text-center py-8">Loading...</p>;
+  return <pre className="text-sm text-white/60 whitespace-pre-wrap bg-white/5 rounded-xl p-4 max-h-[70vh] overflow-auto">{text}</pre>;
 }
 
 export function DocumentList({ kbId }: { kbId: string }) {
@@ -221,32 +221,32 @@ export function DocumentList({ kbId }: { kbId: string }) {
     load();
   };
 
-  if (loading) return <p className="text-gray-400 text-center py-8">Loading documents...</p>;
-  if (docs.length === 0) return <p className="text-gray-400 text-center py-8">No documents yet. Upload one above.</p>;
+  if (loading) return <p className="text-white/30 text-center py-8">Loading documents...</p>;
+  if (docs.length === 0) return <p className="text-white/30 text-center py-8">No documents yet. Upload one above.</p>;
 
   return (
     <>
       <div className="space-y-3">
-        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+        <h2 className="text-sm font-medium text-white/40 uppercase tracking-wider">
           Documents ({docs.length})
         </h2>
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-[#111] border border-white/5 rounded-xl overflow-hidden">
           {docs.map((doc, i) => (
             <div
               key={doc.id}
               onClick={() => setViewingDoc(doc)}
-              className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                i > 0 ? 'border-t border-gray-50' : ''
+              className={`flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors cursor-pointer ${
+                i > 0 ? 'border-t border-white/5' : ''
               }`}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900 font-medium truncate">{doc.filename}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-sm text-white/80 font-medium truncate">{doc.filename}</p>
+                <p className="text-xs text-white/25 mt-0.5">
                   {formatBytes(doc.size_bytes)}
                   {doc.page_count != null && ` · ${doc.page_count} pages`}
                   {' · '}{timeAgo(doc.created_at)}
                 </p>
-                {doc.error_msg && <p className="text-xs text-red-500 mt-1 truncate">{doc.error_msg}</p>}
+                {doc.error_msg && <p className="text-xs text-red-400 mt-1 truncate">{doc.error_msg}</p>}
               </div>
 
               <div className="flex flex-col items-end gap-1 min-w-[120px]">
@@ -259,7 +259,7 @@ export function DocumentList({ kbId }: { kbId: string }) {
                 </span>
                 {doc.status === 'processing' && doc.page_count != null && doc.page_count > 0 && (
                   <div className="w-full">
-                    <p className="text-[10px] text-gray-400 text-right">
+                    <p className="text-[10px] text-white/25 text-right">
                       {doc.pages_indexed ?? 0}/{doc.page_count} pages
                     </p>
                     <ProgressBar value={doc.pages_indexed ?? 0} max={doc.page_count} />
@@ -271,7 +271,7 @@ export function DocumentList({ kbId }: { kbId: string }) {
                 {(doc.status === 'indexed' || doc.status === 'failed') && (
                   <button
                     onClick={(e) => handleReindex(e, doc.id)}
-                    className="text-gray-300 hover:text-blue-500 transition-colors text-xs px-1"
+                    className="text-white/20 hover:text-blue-400 transition-colors text-xs px-1"
                     title="Re-index"
                   >
                     ↻
@@ -279,7 +279,7 @@ export function DocumentList({ kbId }: { kbId: string }) {
                 )}
                 <button
                   onClick={(e) => handleDelete(e, doc.id)}
-                  className="text-gray-300 hover:text-red-500 transition-colors text-sm"
+                  className="text-white/20 hover:text-red-400 transition-colors text-sm"
                   title="Delete"
                 >
                   x

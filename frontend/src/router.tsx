@@ -6,6 +6,8 @@ import { Dashboard } from './pages/Dashboard';
 import { KnowledgebaseView } from './pages/KnowledgebaseView';
 import { WorkspaceSettings } from './pages/WorkspaceSettings';
 import { AcceptInvite } from './pages/AcceptInvite';
+import { Docs } from './pages/Docs';
+import { ApiDocs } from './pages/ApiDocs';
 import { NotFound } from './pages/NotFound';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -20,6 +22,8 @@ export function AppRouter() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/docs" element={<Docs />} />
+      <Route path="/docs/api" element={<ApiDocs />} />
       <Route
         path="/dashboard"
         element={<RequireAuth><Dashboard /></RequireAuth>}

@@ -18,17 +18,17 @@ export function AcceptInvite() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <a href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900">Go to Dashboard</a>
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <div className="bg-[#111] border border-white/10 rounded-xl p-8 text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <a href="/dashboard" className="text-sm text-white/30 hover:text-white/60 transition-colors">Go to Dashboard</a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-gray-400">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white/30">
       Accepting invitation...
     </div>
   );

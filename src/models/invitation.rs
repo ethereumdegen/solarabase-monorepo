@@ -3,14 +3,14 @@ use serde::Serialize;
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use super::workspace::WorkspaceRole;
+use super::knowledgebase::KbRole;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Invitation {
     pub id: Uuid,
-    pub workspace_id: Uuid,
+    pub kb_id: Uuid,
     pub email: String,
-    pub role: WorkspaceRole,
+    pub role: KbRole,
     pub invited_by: Uuid,
     pub token: String,
     pub accepted_at: Option<DateTime<Utc>>,

@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { getBilling } from '../api';
 import type { PlanTier } from '../types';
 
-export function PlanBadge({ workspaceId }: { workspaceId: string }) {
+export function PlanBadge() {
   const [plan, setPlan] = useState<PlanTier | null>(null);
 
   useEffect(() => {
-    getBilling(workspaceId)
+    getBilling()
       .then((b) => setPlan(b.subscription.plan))
       .catch(() => {});
-  }, [workspaceId]);
+  }, []);
 
   if (!plan) return null;
 

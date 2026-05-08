@@ -1,9 +1,10 @@
 pub mod api_key;
+pub mod app_setting;
 pub mod chat_session;
 pub mod document;
+pub mod folder;
 pub mod invitation;
 pub mod knowledgebase;
 pub mod subscription;
 pub mod user;
 pub mod wiki_page;
-pub mod workspace;

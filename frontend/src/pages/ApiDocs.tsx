@@ -123,7 +123,7 @@ export function ApiDocs() {
 
           <Section title="Rate Limits">
             <div className="bg-[#111] border border-white/5 rounded-xl p-5 text-sm text-white/40 space-y-2">
-              <p>Rate limits depend on your workspace plan:</p>
+              <p>Rate limits depend on your plan:</p>
               <ul className="list-disc list-inside space-y-1">
                 <li><strong className="text-white/60">Free:</strong> 500 queries/month</li>
                 <li><strong className="text-white/60">Pro:</strong> 5,000 queries/month</li>

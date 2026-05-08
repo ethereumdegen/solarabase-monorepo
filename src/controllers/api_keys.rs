@@ -8,7 +8,6 @@ use crate::auth::api_key::generate_api_key;
 use crate::auth::extractors::KbAccess;
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::workspace::WorkspaceRole;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -54,7 +53,7 @@ pub async fn create(
     if kb_access.via_api_key {
         return Err(AppError::Forbidden("cannot create API keys via API key auth".into()));
     }
-    if kb_access.role == WorkspaceRole::Member {
+    if !kb_access.can_admin() {
         return Err(AppError::Forbidden("admin required".into()));
     }
 
@@ -90,7 +89,7 @@ pub async fn revoke(
     if kb_access.via_api_key {
         return Err(AppError::Forbidden("cannot revoke API keys via API key auth".into()));
     }
-    if kb_access.role == WorkspaceRole::Member {
+    if !kb_access.can_admin() {
         return Err(AppError::Forbidden("admin required".into()));
     }
 

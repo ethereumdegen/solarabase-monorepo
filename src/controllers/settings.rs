@@ -8,7 +8,6 @@ use crate::auth::extractors::KbAccess;
 use crate::db;
 use crate::error::{AppError, AppResult};
 use crate::models::knowledgebase::KbRole;
-use crate::models::workspace::WorkspaceRole;
 use crate::state::AppState;
 
 /// GET /api/kb/:kb_id/settings
@@ -80,11 +79,6 @@ pub async fn add_kb_member(
     let target_user = db::users::get_by_email(&state.db, &req.email)
         .await?
         .ok_or_else(|| AppError::NotFound(format!("user '{}' not found", req.email)))?;
-
-    // Must be a workspace member
-    let _ws_membership = db::workspaces::get_membership(&state.db, kb_access.kb.workspace_id, target_user.id)
-        .await?
-        .ok_or_else(|| AppError::BadRequest("user must be a workspace member first".into()))?;
 
     let role = req.role.unwrap_or(KbRole::Viewer);
     let membership = db::knowledgebases::add_kb_member(&state.db, kb_access.kb.id, target_user.id, &role).await?;

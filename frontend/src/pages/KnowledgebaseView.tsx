@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { QueryPanel } from '../components/QueryPanel';
-import { DocumentList } from '../components/DocumentList';
-import { Upload } from '../components/Upload';
+import { FolderBrowser } from '../components/FolderBrowser';
 import { WikiPanel } from '../components/WikiPanel';
 import { KbSettings } from '../components/KbSettings';
 import { getKbSettings } from '../api';
@@ -15,7 +14,6 @@ export function KnowledgebaseView() {
   const { kbId } = useParams<{ kbId: string }>();
   const [kb, setKb] = useState<Knowledgebase | null>(null);
   const [tab, setTab] = useState<Tab>('query');
-  const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,7 +48,7 @@ export function KnowledgebaseView() {
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize whitespace-nowrap ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize whitespace-nowrap cursor-pointer ${
                   tab === t
                     ? 'bg-white/10 text-white'
                     : 'text-white/30 hover:text-white/60 hover:bg-white/5'
@@ -63,12 +61,7 @@ export function KnowledgebaseView() {
         </div>
 
         {tab === 'query' && <QueryPanel kbId={kbId} />}
-        {tab === 'documents' && (
-          <div className="space-y-6">
-            <Upload kbId={kbId} onUploaded={() => setRefreshKey((k) => k + 1)} />
-            <DocumentList kbId={kbId} key={refreshKey} />
-          </div>
-        )}
+        {tab === 'documents' && <FolderBrowser kbId={kbId} />}
         {tab === 'wiki' && <WikiPanel kbId={kbId} />}
         {tab === 'settings' && <KbSettings kb={kb} onUpdated={setKb} />}
       </div>

@@ -1,6 +1,5 @@
-use axum::extract::{Path, State};
+use axum::extract::State;
 use axum::Json;
-use uuid::Uuid;
 
 use crate::auth::extractors::AuthUser;
 use crate::db;
@@ -8,21 +7,13 @@ use crate::error::{AppError, AppResult};
 use crate::services::stripe as stripe_svc;
 use crate::state::AppState;
 
-/// GET /api/workspaces/:ws_id/billing
+/// GET /api/billing
 pub async fn get_billing(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
-    Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
-    let ws = db::workspaces::get_by_id(&state.db, ws_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("workspace not found".into()))?;
-    if ws.owner_id != user.id {
-        return Err(AppError::Forbidden("only owner can view billing".into()));
-    }
-
-    let sub = db::subscriptions::get_or_create_free(&state.db, ws_id).await?;
-    let query_usage = db::subscriptions::get_usage(&state.db, ws_id, "queries").await?;
+    let sub = db::subscriptions::get_or_create_free(&state.db, user.id).await?;
+    let query_usage = db::subscriptions::get_usage(&state.db, user.id, "queries").await?;
 
     Ok(Json(serde_json::json!({
         "subscription": sub,
@@ -38,22 +29,14 @@ pub struct CheckoutRequest {
     pub plan: String,
 }
 
-/// POST /api/workspaces/:ws_id/billing/checkout
+/// POST /api/billing/checkout
 pub async fn create_checkout(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
-    Path(ws_id): Path<Uuid>,
     Json(req): Json<CheckoutRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
     let stripe = state.config.stripe.as_ref()
         .ok_or_else(|| AppError::BadRequest("Stripe billing not configured".into()))?;
-
-    let ws = db::workspaces::get_by_id(&state.db, ws_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("workspace not found".into()))?;
-    if ws.owner_id != user.id {
-        return Err(AppError::Forbidden("only owner can manage billing".into()));
-    }
 
     let price_id = match req.plan.as_str() {
         "pro" => &stripe.pro_price_id,
@@ -65,7 +48,7 @@ pub async fn create_checkout(
         stripe,
         price_id,
         &user.email,
-        &ws_id.to_string(),
+        &user.id.to_string(),
         &req.plan,
     )
     .await?;
@@ -73,23 +56,15 @@ pub async fn create_checkout(
     Ok(Json(serde_json::json!({ "url": url })))
 }
 
-/// POST /api/workspaces/:ws_id/billing/portal
+/// POST /api/billing/portal
 pub async fn create_portal(
     AuthUser(user): AuthUser,
     State(state): State<AppState>,
-    Path(ws_id): Path<Uuid>,
 ) -> AppResult<Json<serde_json::Value>> {
     let stripe = state.config.stripe.as_ref()
         .ok_or_else(|| AppError::BadRequest("Stripe billing not configured".into()))?;
 
-    let ws = db::workspaces::get_by_id(&state.db, ws_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("workspace not found".into()))?;
-    if ws.owner_id != user.id {
-        return Err(AppError::Forbidden("only owner can manage billing".into()));
-    }
-
-    let sub = db::subscriptions::get_for_workspace(&state.db, ws_id)
+    let sub = db::subscriptions::get_for_user(&state.db, user.id)
         .await?
         .ok_or_else(|| AppError::BadRequest("no subscription".into()))?;
 

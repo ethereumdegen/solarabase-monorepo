@@ -12,11 +12,12 @@ pub async fn insert(
     s3_key: &str,
     size_bytes: i64,
     uploaded_by: Uuid,
+    folder_id: Option<Uuid>,
 ) -> AppResult<Document> {
     let doc = sqlx::query_as::<_, Document>(
         r#"
-        INSERT INTO documents (kb_id, filename, mime_type, s3_key, size_bytes, uploaded_by)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO documents (kb_id, filename, mime_type, s3_key, size_bytes, uploaded_by, folder_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *, 0::bigint AS pages_indexed
         "#,
     )
@@ -26,6 +27,7 @@ pub async fn insert(
     .bind(s3_key)
     .bind(size_bytes)
     .bind(uploaded_by)
+    .bind(folder_id)
     .fetch_one(pool)
     .await?;
     Ok(doc)
@@ -135,4 +137,35 @@ pub async fn count_for_kb(pool: &PgPool, kb_id: Uuid) -> AppResult<i64> {
     .fetch_one(pool)
     .await?;
     Ok(row.0)
+}
+
+pub async fn list_for_folder(
+    pool: &PgPool,
+    kb_id: Uuid,
+    folder_id: Option<Uuid>,
+) -> AppResult<Vec<Document>> {
+    let docs = sqlx::query_as::<_, Document>(
+        r#"SELECT d.*, (SELECT COUNT(*) FROM page_indexes pi WHERE pi.document_id = d.id) AS pages_indexed
+           FROM documents d
+           WHERE d.kb_id = $1 AND d.folder_id IS NOT DISTINCT FROM $2
+           ORDER BY d.created_at DESC"#,
+    )
+    .bind(kb_id)
+    .bind(folder_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(docs)
+}
+
+pub async fn move_to_folder(
+    pool: &PgPool,
+    id: Uuid,
+    folder_id: Option<Uuid>,
+) -> AppResult<()> {
+    sqlx::query("UPDATE documents SET folder_id = $2, updated_at = now() WHERE id = $1")
+        .bind(id)
+        .bind(folder_id)
+        .execute(pool)
+        .await?;
+    Ok(())
 }

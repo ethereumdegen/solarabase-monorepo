@@ -129,8 +129,8 @@ export function KbSettings({
         <h2 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-2">KB Access Control</h2>
         <p className="text-xs text-white/25 mb-4">
           {kbMembers.length === 0
-            ? 'All workspace members can access this KB. Add members below to restrict access.'
-            : 'Only listed users (and workspace admins) can access this KB.'}
+            ? 'Only you (the owner) can access. Add members to share.'
+            : 'Only you (the owner) and listed members can access this KB.'}
         </p>
 
         {memberError && <p className="text-xs text-red-400 mb-3">{memberError}</p>}

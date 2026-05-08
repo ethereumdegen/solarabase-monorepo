@@ -3,28 +3,28 @@ use uuid::Uuid;
 
 use crate::error::AppResult;
 use crate::models::invitation::Invitation;
-use crate::models::workspace::WorkspaceRole;
+use crate::models::knowledgebase::KbRole;
 
 pub async fn create(
     pool: &PgPool,
-    workspace_id: Uuid,
+    kb_id: Uuid,
     email: &str,
-    role: &WorkspaceRole,
+    role: &KbRole,
     invited_by: Uuid,
     token: &str,
 ) -> AppResult<Invitation> {
     let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
     let inv = sqlx::query_as::<_, Invitation>(
         r#"
-        INSERT INTO invitations (workspace_id, email, role, invited_by, token, expires_at)
+        INSERT INTO invitations (kb_id, email, role, invited_by, token, expires_at)
         VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (workspace_id, email) DO UPDATE
+        ON CONFLICT (kb_id, email) DO UPDATE
         SET role = EXCLUDED.role, token = EXCLUDED.token,
             expires_at = EXCLUDED.expires_at, accepted_at = NULL
         RETURNING *
         "#,
     )
-    .bind(workspace_id)
+    .bind(kb_id)
     .bind(email)
     .bind(role)
     .bind(invited_by)
@@ -53,14 +53,14 @@ pub async fn accept(pool: &PgPool, id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-pub async fn list_for_workspace(
+pub async fn list_for_kb(
     pool: &PgPool,
-    workspace_id: Uuid,
+    kb_id: Uuid,
 ) -> AppResult<Vec<Invitation>> {
     let invs = sqlx::query_as::<_, Invitation>(
-        "SELECT * FROM invitations WHERE workspace_id = $1 ORDER BY created_at DESC",
+        "SELECT * FROM invitations WHERE kb_id = $1 ORDER BY created_at DESC",
     )
-    .bind(workspace_id)
+    .bind(kb_id)
     .fetch_all(pool)
     .await?;
     Ok(invs)

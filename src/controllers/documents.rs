@@ -24,6 +24,7 @@ pub async fn upload(
     let bucket = state.require_bucket()?;
 
     let mut file_data: Option<(String, String, Vec<u8>)> = None;
+    let mut folder_id: Option<uuid::Uuid> = None;
 
     while let Some(field) = multipart
         .next_field()
@@ -45,6 +46,17 @@ pub async fn upload(
                 .await
                 .map_err(|e| AppError::BadRequest(e.to_string()))?;
             file_data = Some((filename, content_type, bytes.to_vec()));
+        } else if name == "folder_id" {
+            let text = field
+                .text()
+                .await
+                .map_err(|e| AppError::BadRequest(e.to_string()))?;
+            if !text.is_empty() {
+                folder_id = Some(
+                    text.parse::<uuid::Uuid>()
+                        .map_err(|_| AppError::BadRequest("invalid folder_id".into()))?,
+                );
+            }
         }
     }
 
@@ -54,8 +66,8 @@ pub async fn upload(
     let size_bytes = bytes.len() as i64;
 
     // Plan limits
-    plan_limits::check_doc_limit(&state.db, kb_access.kb.workspace_id, kb_access.kb.id).await?;
-    plan_limits::check_file_size(&state.db, kb_access.kb.workspace_id, size_bytes).await?;
+    plan_limits::check_doc_limit(&state.db, kb_access.kb.owner_id, kb_access.kb.id).await?;
+    plan_limits::check_file_size(&state.db, kb_access.kb.owner_id, size_bytes).await?;
 
     // Sanitize filename: strip path separators to prevent traversal
     let safe_filename: String = filename
@@ -65,6 +77,16 @@ pub async fn upload(
     let safe_filename = if safe_filename.is_empty() { "file".to_string() } else { safe_filename };
 
     let s3_key = format!("{}/documents/{}/{}", kb_access.kb.id, Uuid::new_v4(), safe_filename);
+
+    // Validate folder belongs to same KB
+    if let Some(fid) = folder_id {
+        let folder = db::folders::get_by_id(&state.db, fid)
+            .await?
+            .ok_or_else(|| AppError::BadRequest("folder not found".into()))?;
+        if folder.kb_id != kb_access.kb.id {
+            return Err(AppError::BadRequest("folder does not belong to this KB".into()));
+        }
+    }
 
     s3::upload_bytes(bucket, &s3_key, &bytes, &content_type).await?;
 
@@ -76,6 +98,7 @@ pub async fn upload(
         &s3_key,
         size_bytes,
         kb_access.user.id,
+        folder_id,
     )
     .await?;
 

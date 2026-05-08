@@ -5,35 +5,35 @@ use uuid::Uuid;
 use crate::error::AppResult;
 use crate::models::subscription::{PlanTier, Subscription};
 
-pub async fn get_or_create_free(pool: &PgPool, workspace_id: Uuid) -> AppResult<Subscription> {
+pub async fn get_or_create_free(pool: &PgPool, user_id: Uuid) -> AppResult<Subscription> {
     // Try to get existing
-    if let Some(sub) = get_for_workspace(pool, workspace_id).await? {
+    if let Some(sub) = get_for_user(pool, user_id).await? {
         return Ok(sub);
     }
 
     // Create free tier
     let sub = sqlx::query_as::<_, Subscription>(
         r#"
-        INSERT INTO subscriptions (workspace_id, plan, status)
+        INSERT INTO subscriptions (user_id, plan, status)
         VALUES ($1, 'free', 'active')
-        ON CONFLICT (workspace_id) DO UPDATE SET updated_at = now()
+        ON CONFLICT (user_id) DO UPDATE SET updated_at = now()
         RETURNING *
         "#,
     )
-    .bind(workspace_id)
+    .bind(user_id)
     .fetch_one(pool)
     .await?;
     Ok(sub)
 }
 
-pub async fn get_for_workspace(
+pub async fn get_for_user(
     pool: &PgPool,
-    workspace_id: Uuid,
+    user_id: Uuid,
 ) -> AppResult<Option<Subscription>> {
     let sub = sqlx::query_as::<_, Subscription>(
-        "SELECT * FROM subscriptions WHERE workspace_id = $1",
+        "SELECT * FROM subscriptions WHERE user_id = $1",
     )
-    .bind(workspace_id)
+    .bind(user_id)
     .fetch_optional(pool)
     .await?;
     Ok(sub)
@@ -41,7 +41,7 @@ pub async fn get_for_workspace(
 
 pub async fn update_from_stripe(
     pool: &PgPool,
-    workspace_id: Uuid,
+    user_id: Uuid,
     plan: &PlanTier,
     stripe_customer_id: &str,
     stripe_subscription_id: &str,
@@ -52,11 +52,11 @@ pub async fn update_from_stripe(
         UPDATE subscriptions
         SET plan = $2, stripe_customer_id = $3, stripe_subscription_id = $4,
             status = 'active', current_period_end = $5, updated_at = now()
-        WHERE workspace_id = $1
+        WHERE user_id = $1
         RETURNING *
         "#,
     )
-    .bind(workspace_id)
+    .bind(user_id)
     .bind(plan)
     .bind(stripe_customer_id)
     .bind(stripe_subscription_id)
@@ -76,8 +76,8 @@ pub async fn cancel(pool: &PgPool, stripe_subscription_id: &str) -> AppResult<()
     Ok(())
 }
 
-pub async fn get_plan_for_workspace(pool: &PgPool, workspace_id: Uuid) -> AppResult<PlanTier> {
-    let sub = get_or_create_free(pool, workspace_id).await?;
+pub async fn get_plan_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<PlanTier> {
+    let sub = get_or_create_free(pool, user_id).await?;
     Ok(sub.plan)
 }
 
@@ -105,21 +105,21 @@ fn monthly_period() -> (chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::
 
 pub async fn increment_usage(
     pool: &PgPool,
-    workspace_id: Uuid,
+    user_id: Uuid,
     metric: &str,
 ) -> AppResult<i64> {
     let (period_start, period_end) = monthly_period();
 
     let row: (i64,) = sqlx::query_as(
         r#"
-        INSERT INTO usage_records (workspace_id, metric, value, period_start, period_end)
+        INSERT INTO usage_records (user_id, metric, value, period_start, period_end)
         VALUES ($1, $2, 1, $3, $4)
-        ON CONFLICT (workspace_id, metric, period_start)
+        ON CONFLICT (user_id, metric, period_start)
         DO UPDATE SET value = usage_records.value + 1
         RETURNING value
         "#,
     )
-    .bind(workspace_id)
+    .bind(user_id)
     .bind(metric)
     .bind(period_start)
     .bind(period_end)
@@ -130,15 +130,15 @@ pub async fn increment_usage(
 
 pub async fn get_usage(
     pool: &PgPool,
-    workspace_id: Uuid,
+    user_id: Uuid,
     metric: &str,
 ) -> AppResult<i64> {
     let (period_start, _) = monthly_period();
 
     let row: Option<(i64,)> = sqlx::query_as(
-        "SELECT value FROM usage_records WHERE workspace_id = $1 AND metric = $2 AND period_start = $3",
+        "SELECT value FROM usage_records WHERE user_id = $1 AND metric = $2 AND period_start = $3",
     )
-    .bind(workspace_id)
+    .bind(user_id)
     .bind(metric)
     .bind(period_start)
     .fetch_optional(pool)

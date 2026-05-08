@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { uploadDocument } from '../api';
 
-export function Upload({ kbId, onUploaded }: { kbId: string; onUploaded: () => void }) {
+export function Upload({ kbId, folderId, onUploaded }: { kbId: string; folderId?: string; onUploaded: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export function Upload({ kbId, onUploaded }: { kbId: string; onUploaded: () => v
       setUploading(true);
       try {
         for (const file of Array.from(files)) {
-          await uploadDocument(kbId, file);
+          await uploadDocument(kbId, file, folderId);
         }
         onUploaded();
       } catch (e: any) {
@@ -22,7 +22,7 @@ export function Upload({ kbId, onUploaded }: { kbId: string; onUploaded: () => v
         setUploading(false);
       }
     },
-    [kbId, onUploaded]
+    [kbId, folderId, onUploaded]
   );
 
   return (

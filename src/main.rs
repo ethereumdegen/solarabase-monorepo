@@ -107,30 +107,9 @@ async fn main() {
         .route("/api/auth/me", get(controllers::auth::me))
         .route("/api/auth/providers", get(controllers::auth::providers))
         .route("/auth/logout", post(controllers::auth::logout))
-        // Workspaces
-        .route("/api/workspaces", get(controllers::workspaces::list))
-        .route("/api/workspaces", post(controllers::workspaces::create))
+        // Knowledgebases (top-level)
         .route(
-            "/api/workspaces/{ws_id}",
-            get(controllers::workspaces::get)
-                .put(controllers::workspaces::update)
-                .delete(controllers::workspaces::delete),
-        )
-        .route(
-            "/api/workspaces/{ws_id}/members",
-            get(controllers::workspaces::list_members),
-        )
-        .route(
-            "/api/workspaces/{ws_id}/invite",
-            post(controllers::workspaces::invite),
-        )
-        .route(
-            "/api/workspaces/{ws_id}/members/{user_id}",
-            delete(controllers::workspaces::remove_member),
-        )
-        // Knowledgebases (under workspace)
-        .route(
-            "/api/workspaces/{ws_id}/kbs",
+            "/api/kbs",
             get(controllers::knowledgebases::list)
                 .post(controllers::knowledgebases::create),
         )
@@ -144,6 +123,38 @@ async fn main() {
             "/api/kb/{kb_id}/settings",
             get(controllers::settings::get_settings)
                 .put(controllers::settings::update_settings),
+        )
+        // KB invite
+        .route(
+            "/api/kb/{kb_id}/invite",
+            post(controllers::knowledgebases::invite),
+        )
+        // Folders
+        .route(
+            "/api/kb/{kb_id}/folders",
+            post(controllers::folders::create)
+                .get(controllers::folders::list),
+        )
+        .route(
+            "/api/kb/{kb_id}/folders/{id}/rename",
+            put(controllers::folders::rename),
+        )
+        .route(
+            "/api/kb/{kb_id}/folders/{id}/move",
+            put(controllers::folders::move_folder),
+        )
+        .route(
+            "/api/kb/{kb_id}/folders/{id}/category",
+            put(controllers::folders::update_category),
+        )
+        .route(
+            "/api/kb/{kb_id}/folders/{id}",
+            delete(controllers::folders::delete),
+        )
+        // Documents
+        .route(
+            "/api/kb/{kb_id}/documents/{id}/move",
+            put(controllers::folders::move_document),
         )
         .route(
             "/api/kb/{kb_id}/documents",
@@ -218,23 +229,31 @@ async fn main() {
             "/api/kb/{kb_id}/api-keys/{key_id}",
             delete(controllers::api_keys::revoke),
         )
-        // Billing
+        // Billing (user-level)
         .route(
-            "/api/workspaces/{ws_id}/billing",
+            "/api/billing",
             get(controllers::billing::get_billing),
         )
         .route(
-            "/api/workspaces/{ws_id}/billing/checkout",
+            "/api/billing/checkout",
             post(controllers::billing::create_checkout),
         )
         .route(
-            "/api/workspaces/{ws_id}/billing/portal",
+            "/api/billing/portal",
             post(controllers::billing::create_portal),
+        )
+        // Admin
+        .route("/api/admin/users", get(controllers::admin::list_users))
+        .route("/api/admin/kbs", get(controllers::admin::list_kbs))
+        .route(
+            "/api/admin/settings",
+            get(controllers::admin::list_settings)
+                .put(controllers::admin::update_setting),
         )
         // Invitations
         .route(
             "/api/invitations/accept",
-            post(controllers::workspaces::accept_invite),
+            post(controllers::knowledgebases::accept_invite),
         )
         // Stripe webhook
         .route(

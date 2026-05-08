@@ -22,6 +22,7 @@ pub struct Document {
     pub s3_key: String,
     pub size_bytes: i64,
     pub status: DocStatus,
+    pub folder_id: Option<Uuid>,
     pub page_count: Option<i32>,
     pub pages_indexed: Option<i64>,
     pub error_msg: Option<String>,

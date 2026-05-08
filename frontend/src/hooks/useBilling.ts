@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getBilling } from '../api';
 
-export function useBilling(wsId: string | undefined) {
+export function useBilling() {
   return useQuery({
-    queryKey: ['billing', wsId],
-    queryFn: () => getBilling(wsId!),
-    enabled: !!wsId,
+    queryKey: ['billing'],
+    queryFn: () => getBilling(),
   });
 }

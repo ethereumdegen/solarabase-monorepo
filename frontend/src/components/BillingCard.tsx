@@ -8,18 +8,18 @@ const PLAN_LIMITS: Record<string, { kbs: string; docs: string; queries: string; 
   team: { kbs: 'Unlimited', docs: 'Unlimited', queries: 'Unlimited', members: 'Unlimited' },
 };
 
-export function BillingCard({ wsId }: { wsId: string }) {
+export function BillingCard() {
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getBilling(wsId).then(setBilling).catch(() => {});
-  }, [wsId]);
+    getBilling().then(setBilling).catch(() => {});
+  }, []);
 
   const handleUpgrade = async (plan: string) => {
     setError(null);
     try {
-      const { url } = await createCheckout(wsId, plan);
+      const { url } = await createCheckout(plan);
       window.location.href = url;
     } catch (e: any) {
       setError(e.message || 'Failed to start checkout');
@@ -29,7 +29,7 @@ export function BillingCard({ wsId }: { wsId: string }) {
   const handlePortal = async () => {
     setError(null);
     try {
-      const { url } = await createPortal(wsId);
+      const { url } = await createPortal();
       window.location.href = url;
     } catch (e: any) {
       setError(e.message || 'Failed to open billing portal');

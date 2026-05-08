@@ -88,7 +88,7 @@ pub async fn send_message(
     }
 
     // Check limit before saving anything
-    crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.workspace_id).await?;
+    crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.owner_id).await?;
 
     // Save user message
     db::chat_sessions::add_message(
@@ -111,7 +111,7 @@ pub async fn send_message(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    db::subscriptions::increment_usage(&state.db, kb_access.kb.workspace_id, "queries").await?;
+    db::subscriptions::increment_usage(&state.db, kb_access.kb.owner_id, "queries").await?;
 
     let meta = serde_json::json!({
         "reasoning_path": response.reasoning_path,

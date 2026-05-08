@@ -1,35 +1,19 @@
+export type UserRole = 'user' | 'admin';
+
 export type User = {
   id: string;
   google_id: string;
   email: string;
   name: string;
   avatar_url: string | null;
+  role: UserRole;
   created_at: string;
   last_login_at: string;
 };
 
-export type Workspace = {
-  id: string;
-  name: string;
-  slug: string;
-  owner_id: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type WorkspaceRole = 'owner' | 'admin' | 'member';
-
-export type MemberWithUser = {
-  user_id: string;
-  email: string;
-  name: string;
-  avatar_url: string | null;
-  role: WorkspaceRole;
-};
-
 export type Knowledgebase = {
   id: string;
-  workspace_id: string;
+  owner_id: string;
   name: string;
   slug: string;
   description: string;
@@ -49,6 +33,7 @@ export type Document = {
   s3_key: string;
   size_bytes: number;
   status: 'uploaded' | 'processing' | 'indexed' | 'failed';
+  folder_id: string | null;
   page_count: number | null;
   pages_indexed: number | null;
   error_msg: string | null;
@@ -56,6 +41,40 @@ export type Document = {
   created_at: string;
   updated_at: string;
 };
+
+export type DocFolder = {
+  id: string;
+  kb_id: string;
+  parent_id: string | null;
+  name: string;
+  category: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BreadcrumbEntry = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+};
+
+export type FolderContents = {
+  folders: DocFolder[];
+  documents: Document[];
+  breadcrumb: BreadcrumbEntry[];
+};
+
+export const FOLDER_CATEGORIES = [
+  'legal',
+  'hr',
+  'engineering',
+  'marketing',
+  'finance',
+  'operations',
+  'compliance',
+  'research',
+] as const;
 
 export type QueryResponse = {
   answer: string;
@@ -80,7 +99,7 @@ export type PlanTier = 'free' | 'pro' | 'team';
 
 export type Subscription = {
   id: string;
-  workspace_id: string;
+  user_id: string;
   plan: PlanTier;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -136,9 +155,9 @@ export type WikiPageDetail = WikiPage & {
 
 export type Invitation = {
   id: string;
-  workspace_id: string;
+  kb_id: string;
   email: string;
-  role: WorkspaceRole;
+  role: KbRole;
   token: string;
   accepted_at: string | null;
   expires_at: string;

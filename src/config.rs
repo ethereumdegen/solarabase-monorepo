@@ -81,7 +81,7 @@ impl AppConfig {
                 })
             }
             _ => {
-                tracing::warn!("Stripe not configured — billing disabled (all workspaces get free plan)");
+                tracing::warn!("Stripe not configured — billing disabled (all users get free plan)");
                 None
             }
         };

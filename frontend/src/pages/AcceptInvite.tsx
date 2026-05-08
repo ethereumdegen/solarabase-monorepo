@@ -11,7 +11,7 @@ export function AcceptInvite() {
     const token = params.get('token');
     if (token) {
       acceptInvite(token)
-        .then(() => navigate('/dashboard'))
+        .then((kb) => navigate(`/kb/${kb.id}`))
         .catch((e) => setError(e.message));
     }
   }, [params, navigate]);

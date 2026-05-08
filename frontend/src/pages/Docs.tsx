@@ -22,7 +22,7 @@ export function Docs() {
         <div className="space-y-12">
           <Section title="Getting Started">
             <Step n={1} title="Create an account">
-              Sign up with Google OAuth. A default workspace is created automatically.
+              Sign up with Google OAuth to get started.
             </Step>
             <Step n={2} title="Create a Knowledgebase">
               Each knowledgebase is an isolated collection of documents with its own RAG agent,
@@ -39,10 +39,6 @@ export function Docs() {
           </Section>
 
           <Section title="Key Concepts">
-            <Concept title="Workspaces">
-              Top-level containers for billing and team management. Each workspace has a plan (Free, Pro, Team)
-              and can contain multiple knowledgebases.
-            </Concept>
             <Concept title="Knowledgebases">
               Isolated document collections. Each KB has its own AI agent configuration, documents, wiki,
               and API keys. Access can be controlled per-user with roles (viewer, editor, admin).

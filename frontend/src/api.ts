@@ -1,13 +1,13 @@
 import type {
   User,
-  Workspace,
   Knowledgebase,
   Document,
+  DocFolder,
+  FolderContents,
   QueryResponse,
   ApiKeyInfo,
   ApiKeyCreated,
   BillingInfo,
-  MemberWithUser,
   ChatSession,
   WikiPage,
   WikiPageDetail,
@@ -33,42 +33,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 export const getMe = () => fetchJson<User>('/api/auth/me');
 export const logout = () => fetch('/auth/logout', { method: 'POST', credentials: 'include' });
 
-// Workspaces
-export const listWorkspaces = () => fetchJson<Workspace[]>('/api/workspaces');
-export const createWorkspace = (data: { name: string; slug: string }) =>
-  fetchJson<Workspace>('/api/workspaces', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-export const getWorkspace = (id: string) => fetchJson<Workspace>(`/api/workspaces/${id}`);
-export const updateWorkspace = (id: string, data: { name: string }) =>
-  fetchJson<Workspace>(`/api/workspaces/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-export const deleteWorkspace = (id: string) =>
-  fetch(`/api/workspaces/${id}`, { method: 'DELETE', credentials: 'include' });
-export const listMembers = (wsId: string) =>
-  fetchJson<MemberWithUser[]>(`/api/workspaces/${wsId}/members`);
-export const inviteMember = (wsId: string, email: string, role?: string) =>
-  fetchJson<unknown>(`/api/workspaces/${wsId}/invite`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, role }),
-  });
-export const removeMember = (wsId: string, userId: string) =>
-  fetch(`/api/workspaces/${wsId}/members/${userId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  });
-
 // Knowledgebases
-export const listKbs = (wsId: string) =>
-  fetchJson<Knowledgebase[]>(`/api/workspaces/${wsId}/kbs`);
-export const createKb = (wsId: string, data: { name: string; slug: string; description?: string }) =>
-  fetchJson<Knowledgebase>(`/api/workspaces/${wsId}/kbs`, {
+export const listKbs = () =>
+  fetchJson<Knowledgebase[]>('/api/kbs');
+export const createKb = (data: { name: string; slug: string; description?: string }) =>
+  fetchJson<Knowledgebase>('/api/kbs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -87,9 +56,10 @@ export const updateKbSettings = (kbId: string, data: Partial<Knowledgebase>) =>
 // Documents
 export const listDocuments = (kbId: string) =>
   fetchJson<Document[]>(`/api/kb/${kbId}/documents`);
-export const uploadDocument = (kbId: string, file: File) => {
+export const uploadDocument = (kbId: string, file: File, folderId?: string) => {
   const form = new FormData();
   form.append('file', file);
+  if (folderId) form.append('folder_id', folderId);
   return fetchJson<Document>(`/api/kb/${kbId}/documents`, {
     method: 'POST',
     body: form,
@@ -106,6 +76,47 @@ export const getDocumentContentUrl = (kbId: string, docId: string) =>
   `/api/kb/${kbId}/documents/${docId}/content`;
 export const getDocumentPages = (kbId: string, docId: string) =>
   fetchJson<{ document: Document; pages: any[]; root_index: any }>(`/api/kb/${kbId}/documents/${docId}/pages`);
+
+// Folders
+export const listFolderContents = (kbId: string, parentId?: string) => {
+  const params = parentId ? `?parent_id=${parentId}` : '';
+  return fetchJson<FolderContents>(`/api/kb/${kbId}/folders${params}`);
+};
+export const createFolder = (kbId: string, data: { name: string; parent_id?: string; category?: string }) =>
+  fetchJson<DocFolder>(`/api/kb/${kbId}/folders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+export const renameFolder = (kbId: string, folderId: string, name: string) =>
+  fetchJson<DocFolder>(`/api/kb/${kbId}/folders/${folderId}/rename`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+export const moveFolder = (kbId: string, folderId: string, parentId: string | null) =>
+  fetchJson<DocFolder>(`/api/kb/${kbId}/folders/${folderId}/move`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ parent_id: parentId }),
+  });
+export const updateFolderCategory = (kbId: string, folderId: string, category: string | null) =>
+  fetchJson<DocFolder>(`/api/kb/${kbId}/folders/${folderId}/category`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category }),
+  });
+export const deleteFolder = (kbId: string, folderId: string) =>
+  fetch(`/api/kb/${kbId}/folders/${folderId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+export const moveDocument = (kbId: string, docId: string, folderId: string | null) =>
+  fetchJson<Document>(`/api/kb/${kbId}/documents/${docId}/move`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder_id: folderId }),
+  });
 
 // Wiki
 export const listWikiPages = (kbId: string) =>
@@ -136,17 +147,17 @@ export const revokeApiKey = (kbId: string, keyId: string) =>
     credentials: 'include',
   });
 
-// Billing
-export const getBilling = (wsId: string) =>
-  fetchJson<BillingInfo>(`/api/workspaces/${wsId}/billing`);
-export const createCheckout = (wsId: string, plan: string) =>
-  fetchJson<{ url: string }>(`/api/workspaces/${wsId}/billing/checkout`, {
+// Billing (user-level)
+export const getBilling = () =>
+  fetchJson<BillingInfo>('/api/billing');
+export const createCheckout = (plan: string) =>
+  fetchJson<{ url: string }>('/api/billing/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan }),
   });
-export const createPortal = (wsId: string) =>
-  fetchJson<{ url: string }>(`/api/workspaces/${wsId}/billing/portal`, {
+export const createPortal = () =>
+  fetchJson<{ url: string }>('/api/billing/portal', {
     method: 'POST',
   });
 
@@ -165,12 +176,24 @@ export const removeKbMember = (kbId: string, userId: string) =>
     credentials: 'include',
   });
 
+// KB Invitations
+export const inviteToKb = (kbId: string, email: string, role?: KbRole) =>
+  fetchJson<unknown>(`/api/kb/${kbId}/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, role }),
+  });
+
 // Chat sessions
 export const listSessions = (kbId: string) =>
   fetchJson<ChatSession[]>(`/api/kb/${kbId}/sessions`);
 
+// Admin
+export const adminListUsers = () => fetchJson<User[]>('/api/admin/users');
+export const adminListKbs = () => fetchJson<Knowledgebase[]>('/api/admin/kbs');
+
 // Invitations
 export const acceptInvite = (token: string) =>
-  fetchJson<Workspace>(`/api/invitations/accept?token=${encodeURIComponent(token)}`, {
+  fetchJson<Knowledgebase>(`/api/invitations/accept?token=${encodeURIComponent(token)}`, {
     method: 'POST',
   });

@@ -6,7 +6,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Knowledgebase {
     pub id: Uuid,
-    pub workspace_id: Uuid,
+    pub owner_id: Uuid,
     pub name: String,
     pub slug: String,
     pub description: String,

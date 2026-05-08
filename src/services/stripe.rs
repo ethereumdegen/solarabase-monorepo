@@ -57,7 +57,7 @@ pub async fn create_checkout_session(
     config: &StripeConfig,
     price_id: &str,
     customer_email: &str,
-    workspace_id: &str,
+    user_id: &str,
     plan: &str,
 ) -> AppResult<String> {
     let client = reqwest::Client::new();
@@ -73,7 +73,7 @@ pub async fn create_checkout_session(
             ("customer_email", customer_email),
             ("success_url", &format!("{public_url}/dashboard?billing=success")),
             ("cancel_url", &format!("{public_url}/dashboard?billing=cancel")),
-            ("metadata[workspace_id]", workspace_id),
+            ("metadata[user_id]", user_id),
             ("metadata[plan]", plan),
         ])
         .send()

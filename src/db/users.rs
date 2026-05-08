@@ -69,3 +69,12 @@ pub async fn get_by_email(pool: &PgPool, email: &str) -> AppResult<Option<User>>
         .await?;
     Ok(user)
 }
+
+pub async fn list_all(pool: &PgPool) -> AppResult<Vec<User>> {
+    let users = sqlx::query_as::<_, User>(
+        "SELECT * FROM users ORDER BY created_at DESC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(users)
+}

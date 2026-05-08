@@ -6,22 +6,24 @@ use crate::models::knowledgebase::{KbMemberWithUser, KbMembership, KbRole, Knowl
 
 pub async fn create(
     pool: &PgPool,
-    workspace_id: Uuid,
+    owner_id: Uuid,
     name: &str,
     slug: &str,
     description: &str,
+    default_model: &str,
 ) -> AppResult<Knowledgebase> {
     let kb = sqlx::query_as::<_, Knowledgebase>(
         r#"
-        INSERT INTO knowledgebases (workspace_id, name, slug, description)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO knowledgebases (owner_id, name, slug, description, model)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING *
         "#,
     )
-    .bind(workspace_id)
+    .bind(owner_id)
     .bind(name)
     .bind(slug)
     .bind(description)
+    .bind(default_model)
     .fetch_one(pool)
     .await?;
     Ok(kb)
@@ -37,14 +39,33 @@ pub async fn get_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Knowledgebas
     Ok(kb)
 }
 
-pub async fn list_for_workspace(
+pub async fn list_for_user(
     pool: &PgPool,
-    workspace_id: Uuid,
+    user_id: Uuid,
 ) -> AppResult<Vec<Knowledgebase>> {
     let kbs = sqlx::query_as::<_, Knowledgebase>(
-        "SELECT * FROM knowledgebases WHERE workspace_id = $1 ORDER BY created_at DESC",
+        "SELECT * FROM knowledgebases WHERE owner_id = $1 ORDER BY created_at DESC",
     )
-    .bind(workspace_id)
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(kbs)
+}
+
+/// List all KBs the user can access: owned OR has kb_membership
+pub async fn list_accessible(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> AppResult<Vec<Knowledgebase>> {
+    let kbs = sqlx::query_as::<_, Knowledgebase>(
+        r#"
+        SELECT DISTINCT k.* FROM knowledgebases k
+        LEFT JOIN kb_memberships km ON km.kb_id = k.id AND km.user_id = $1
+        WHERE k.owner_id = $1 OR km.user_id = $1
+        ORDER BY k.created_at DESC
+        "#,
+    )
+    .bind(user_id)
     .fetch_all(pool)
     .await?;
     Ok(kbs)
@@ -82,11 +103,20 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<bool> {
     Ok(result.rows_affected() > 0)
 }
 
-pub async fn count_for_workspace(pool: &PgPool, workspace_id: Uuid) -> AppResult<i64> {
-    let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM knowledgebases WHERE workspace_id = $1",
+pub async fn list_all(pool: &PgPool) -> AppResult<Vec<Knowledgebase>> {
+    let kbs = sqlx::query_as::<_, Knowledgebase>(
+        "SELECT * FROM knowledgebases ORDER BY created_at DESC",
     )
-    .bind(workspace_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(kbs)
+}
+
+pub async fn count_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM knowledgebases WHERE owner_id = $1",
+    )
+    .bind(user_id)
     .fetch_one(pool)
     .await?;
     Ok(row.0)
@@ -173,4 +203,14 @@ pub async fn remove_kb_member(
     .execute(pool)
     .await?;
     Ok(result.rows_affected() > 0)
+}
+
+pub async fn kb_member_count(pool: &PgPool, kb_id: Uuid) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM kb_memberships WHERE kb_id = $1",
+    )
+    .bind(kb_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
 }

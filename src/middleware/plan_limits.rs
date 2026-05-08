@@ -3,12 +3,11 @@ use uuid::Uuid;
 
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::subscription::PlanTier;
 
-pub async fn check_kb_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<()> {
-    let plan = db::subscriptions::get_plan_for_workspace(pool, workspace_id).await?;
+pub async fn check_kb_limit(pool: &PgPool, user_id: Uuid) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_user(pool, user_id).await?;
     if let Some(max) = plan.max_kbs() {
-        let count = db::knowledgebases::count_for_workspace(pool, workspace_id).await?;
+        let count = db::knowledgebases::count_for_user(pool, user_id).await?;
         if count >= max {
             return Err(AppError::PlanLimitExceeded(format!(
                 "KB limit reached ({max}). Upgrade your plan for more."
@@ -18,8 +17,8 @@ pub async fn check_kb_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<()> 
     Ok(())
 }
 
-pub async fn check_doc_limit(pool: &PgPool, workspace_id: Uuid, kb_id: Uuid) -> AppResult<()> {
-    let plan = db::subscriptions::get_plan_for_workspace(pool, workspace_id).await?;
+pub async fn check_doc_limit(pool: &PgPool, user_id: Uuid, kb_id: Uuid) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_user(pool, user_id).await?;
     if let Some(max) = plan.max_docs_per_kb() {
         let count = db::documents::count_for_kb(pool, kb_id).await?;
         if count >= max {
@@ -31,10 +30,10 @@ pub async fn check_doc_limit(pool: &PgPool, workspace_id: Uuid, kb_id: Uuid) -> 
     Ok(())
 }
 
-pub async fn check_query_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<()> {
-    let plan = db::subscriptions::get_plan_for_workspace(pool, workspace_id).await?;
+pub async fn check_query_limit(pool: &PgPool, user_id: Uuid) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_user(pool, user_id).await?;
     if let Some(max) = plan.max_queries_per_month() {
-        let count = db::subscriptions::get_usage(pool, workspace_id, "queries").await?;
+        let count = db::subscriptions::get_usage(pool, user_id, "queries").await?;
         if count >= max {
             return Err(AppError::PlanLimitExceeded(format!(
                 "Monthly query limit reached ({max}). Upgrade your plan for more."
@@ -44,10 +43,10 @@ pub async fn check_query_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<(
     Ok(())
 }
 
-pub async fn check_member_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<()> {
-    let plan = db::subscriptions::get_plan_for_workspace(pool, workspace_id).await?;
+pub async fn check_member_limit(pool: &PgPool, user_id: Uuid, kb_id: Uuid) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_user(pool, user_id).await?;
     if let Some(max) = plan.max_members() {
-        let count = db::workspaces::member_count(pool, workspace_id).await?;
+        let count = db::knowledgebases::kb_member_count(pool, kb_id).await?;
         if count >= max {
             return Err(AppError::PlanLimitExceeded(format!(
                 "Member limit reached ({max}). Upgrade your plan for more."
@@ -57,8 +56,8 @@ pub async fn check_member_limit(pool: &PgPool, workspace_id: Uuid) -> AppResult<
     Ok(())
 }
 
-pub async fn check_file_size(pool: &PgPool, workspace_id: Uuid, size_bytes: i64) -> AppResult<()> {
-    let plan = db::subscriptions::get_plan_for_workspace(pool, workspace_id).await?;
+pub async fn check_file_size(pool: &PgPool, user_id: Uuid, size_bytes: i64) -> AppResult<()> {
+    let plan = db::subscriptions::get_plan_for_user(pool, user_id).await?;
     let max = plan.max_file_size_bytes();
     if size_bytes > max {
         let max_mb = max / (1024 * 1024);

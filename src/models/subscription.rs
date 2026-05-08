@@ -23,7 +23,7 @@ pub enum SubscriptionStatus {
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct Subscription {
     pub id: Uuid,
-    pub workspace_id: Uuid,
+    pub user_id: Uuid,
     pub plan: PlanTier,
     pub stripe_customer_id: Option<String>,
     pub stripe_subscription_id: Option<String>,
@@ -36,7 +36,7 @@ pub struct Subscription {
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct UsageRecord {
     pub id: Uuid,
-    pub workspace_id: Uuid,
+    pub user_id: Uuid,
     pub metric: String,
     pub value: i64,
     pub period_start: DateTime<Utc>,

@@ -5,8 +5,7 @@ use uuid::Uuid;
 use crate::db;
 use crate::error::AppError;
 use crate::models::knowledgebase::{KbRole, Knowledgebase};
-use crate::models::user::User;
-use crate::models::workspace::WorkspaceRole;
+use crate::models::user::{User, UserRole};
 use crate::state::AppState;
 
 use super::api_key::hash_api_key;
@@ -44,13 +43,30 @@ impl FromRequestParts<AppState> for AuthUser {
     }
 }
 
-/// Extracts KB access: validates user has access to a KB via workspace membership OR API key.
-/// If the KB has explicit kb_memberships, only listed users + workspace owners/admins get access.
+/// Extracts an admin user — returns Forbidden if user.role != Admin.
+pub struct AdminUser(pub User);
+
+impl FromRequestParts<AppState> for AdminUser {
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let AuthUser(user) = AuthUser::from_request_parts(parts, state).await?;
+        if user.role != UserRole::Admin {
+            return Err(AppError::Forbidden("admin access required".into()));
+        }
+        Ok(AdminUser(user))
+    }
+}
+
+/// Extracts KB access: validates user has access to a KB via ownership, kb_membership, or API key.
 /// Expects `kb_id` in the URL path.
 pub struct KbAccess {
     pub user: User,
     pub kb: Knowledgebase,
-    pub role: WorkspaceRole,
+    pub is_owner: bool,
     pub kb_role: Option<KbRole>,
     pub via_api_key: bool,
 }
@@ -92,9 +108,9 @@ impl FromRequestParts<AppState> for KbAccess {
                                 .ok_or(AppError::Unauthorized)?;
 
                             return Ok(KbAccess {
+                                is_owner: kb.owner_id == user.id,
                                 user,
                                 kb,
-                                role: WorkspaceRole::Member,
                                 kb_role: None,
                                 via_api_key: true,
                             });
@@ -113,33 +129,29 @@ impl FromRequestParts<AppState> for KbAccess {
             .await?
             .ok_or_else(|| AppError::NotFound("knowledgebase not found".into()))?;
 
-        // Check workspace membership
-        let membership =
-            db::workspaces::get_membership(&state.db, kb.workspace_id, user.id)
-                .await?
-                .ok_or_else(|| AppError::Forbidden("not a member of this workspace".into()))?;
+        // Check ownership
+        let is_owner = kb.owner_id == user.id;
 
-        // Check KB-level access if KB has explicit memberships
-        let kb_role = if db::knowledgebases::kb_has_memberships(&state.db, kb_id).await? {
-            // Workspace owners/admins always have access
-            if membership.role == WorkspaceRole::Owner || membership.role == WorkspaceRole::Admin {
-                Some(KbRole::Admin)
-            } else {
-                // Must have explicit KB membership
-                let kb_membership = db::knowledgebases::get_kb_membership(&state.db, kb_id, user.id)
-                    .await?
-                    .ok_or_else(|| AppError::Forbidden("no access to this knowledgebase".into()))?;
-                Some(kb_membership.role)
-            }
-        } else {
-            None // No KB-level restrictions, workspace membership sufficient
-        };
+        if is_owner {
+            return Ok(KbAccess {
+                user,
+                kb,
+                is_owner: true,
+                kb_role: Some(KbRole::Admin),
+                via_api_key: false,
+            });
+        }
+
+        // Check kb_membership
+        let kb_membership = db::knowledgebases::get_kb_membership(&state.db, kb_id, user.id)
+            .await?
+            .ok_or_else(|| AppError::Forbidden("no access to this knowledgebase".into()))?;
 
         Ok(KbAccess {
             user,
             kb,
-            role: membership.role,
-            kb_role,
+            is_owner: false,
+            kb_role: Some(kb_membership.role),
             via_api_key: false,
         })
     }
@@ -149,16 +161,9 @@ impl KbAccess {
     /// Returns true if user has at least editor-level write access.
     pub fn can_write(&self) -> bool {
         if self.via_api_key {
-            return true; // API keys grant write access
+            return true;
         }
-        match self.role {
-            WorkspaceRole::Owner | WorkspaceRole::Admin => true,
-            WorkspaceRole::Member => match self.kb_role {
-                Some(KbRole::Admin) | Some(KbRole::Editor) => true,
-                Some(KbRole::Viewer) => false,
-                None => true, // No KB-level restrictions
-            },
-        }
+        self.is_owner || matches!(self.kb_role, Some(KbRole::Admin) | Some(KbRole::Editor))
     }
 
     /// Returns true if user has admin access to KB.
@@ -166,10 +171,7 @@ impl KbAccess {
         if self.via_api_key {
             return false;
         }
-        match self.role {
-            WorkspaceRole::Owner | WorkspaceRole::Admin => true,
-            WorkspaceRole::Member => self.kb_role == Some(KbRole::Admin),
-        }
+        self.is_owner || self.kb_role == Some(KbRole::Admin)
     }
 }
 

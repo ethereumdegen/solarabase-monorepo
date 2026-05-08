@@ -1,10 +1,11 @@
 pub mod api_keys;
+pub mod app_settings;
 pub mod chat_sessions;
 pub mod documents;
+pub mod folders;
 pub mod invitations;
 pub mod knowledgebases;
 pub mod page_indexes;
 pub mod subscriptions;
 pub mod users;
 pub mod wiki_pages;
-pub mod workspaces;

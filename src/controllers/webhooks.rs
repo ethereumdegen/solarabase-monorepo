@@ -31,15 +31,14 @@ pub async fn stripe_webhook(
     match event_type {
         "checkout.session.completed" => {
             let session = &event["data"]["object"];
-            let workspace_id = session["metadata"]["workspace_id"]
+            let user_id = session["metadata"]["user_id"]
                 .as_str()
                 .and_then(|s| uuid::Uuid::parse_str(s).ok());
 
-            if let Some(ws_id) = workspace_id {
+            if let Some(uid) = user_id {
                 let customer_id = session["customer"].as_str().unwrap_or("");
                 let subscription_id = session["subscription"].as_str().unwrap_or("");
 
-                // Determine plan from metadata (set during checkout) or line items price
                 let plan = session["metadata"]["plan"]
                     .as_str()
                     .and_then(|p| match p {
@@ -51,7 +50,7 @@ pub async fn stripe_webhook(
 
                 db::subscriptions::update_from_stripe(
                     &state.db,
-                    ws_id,
+                    uid,
                     &plan,
                     customer_id,
                     subscription_id,
@@ -59,7 +58,7 @@ pub async fn stripe_webhook(
                 )
                 .await?;
 
-                tracing::info!(workspace_id = %ws_id, plan = ?plan, "subscription activated");
+                tracing::info!(user_id = %uid, plan = ?plan, "subscription activated");
             }
         }
         "customer.subscription.deleted" => {

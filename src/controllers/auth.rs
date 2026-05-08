@@ -80,18 +80,8 @@ pub async fn google_callback(
 
     tracing::info!(user_id = %user.id, email = %user.email, "user logged in");
 
-    // Ensure user has at least one workspace
-    let workspaces = db::workspaces::list_for_user(&state.db, user.id).await?;
-    if workspaces.is_empty() {
-        let slug = user
-            .email
-            .split('@')
-            .next()
-            .unwrap_or("workspace")
-            .to_string();
-        let ws = db::workspaces::create(&state.db, &format!("{}'s Workspace", user.name), &slug, user.id).await?;
-        db::subscriptions::get_or_create_free(&state.db, ws.id).await?;
-    }
+    // Ensure user has a subscription
+    db::subscriptions::get_or_create_free(&state.db, user.id).await?;
 
     let jwt = sign_jwt(user.id, &user.email, &state.config.jwt_secret)
         .map_err(|e| AppError::Internal(e.to_string()))?;
@@ -139,13 +129,8 @@ pub async fn dev_login(
     )
     .await?;
 
-    // Ensure user has at least one workspace
-    let workspaces = db::workspaces::list_for_user(&state.db, user.id).await?;
-    if workspaces.is_empty() {
-        let slug = user.email.split('@').next().unwrap_or("workspace").to_string();
-        let ws = db::workspaces::create(&state.db, &format!("{}'s Workspace", user.name), &slug, user.id).await?;
-        db::subscriptions::get_or_create_free(&state.db, ws.id).await?;
-    }
+    // Ensure user has a subscription
+    db::subscriptions::get_or_create_free(&state.db, user.id).await?;
 
     let jwt = sign_jwt(user.id, &user.email, &state.config.jwt_secret)
         .map_err(|e| AppError::Internal(e.to_string()))?;

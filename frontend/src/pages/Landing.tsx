@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Footer } from '../components/Footer';
+import { SparkleBox } from '../components/SparkleBox';
 
 export function Landing() {
   const { user } = useAuth();
@@ -27,10 +28,12 @@ export function Landing() {
       <main className="flex-1">
         {/* Hero */}
         <section className="max-w-4xl mx-auto px-6 pt-24 pb-32">
-          <div className="flex flex-wrap gap-2 mb-8">
-            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">RAG Agent</span>
-            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">Auto-Indexing</span>
-            <span className="px-3 py-1 border border-white/10 rounded-full text-xs text-white/50">API Access</span>
+          <div className="mb-12">
+            <SparkleBox>
+              <p className="text-sm md:text-base font-medium tracking-wide text-white/70">
+                personalized knowledgebase
+              </p>
+            </SparkleBox>
           </div>
           <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-8">
             Knowledgebase<br />

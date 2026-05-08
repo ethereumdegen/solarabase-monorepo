@@ -86,6 +86,18 @@ async fn main() {
         }
     });
 
+    // Chat worker pool (fixed N workers polling DB for jobs)
+    services::chat_worker::spawn_workers(state.clone());
+
+    // Stale chat job cleanup
+    let cleanup_state = state.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            services::chat_worker::cleanup_stale_jobs(&cleanup_state).await;
+        }
+    });
+
     // Rate limiters (per-IP): auth=tight, api=moderate, webhook=separate
     let auth_limiter = middleware::rate_limit::create_limiter(5, 10);
     let api_limiter = middleware::rate_limit::create_limiter(20, 40);

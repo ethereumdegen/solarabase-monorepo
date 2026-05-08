@@ -12,6 +12,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pollTrigger, setPollTrigger] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Load sessions on mount
@@ -54,7 +55,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [kbId, activeSessionId]);
+  }, [kbId, activeSessionId, pollTrigger]);
 
 
 
@@ -99,24 +100,12 @@ export function QueryPanel({ kbId }: { kbId: string }) {
     }
 
     setInput('');
-    // Optimistic user message
-    const tempUserMsg: ChatMessage = {
-      id: `temp-${Date.now()}`,
-      session_id: sessionId,
-      role: 'user',
-      content: question,
-      metadata: null,
-      created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, tempUserMsg]);
     setLoading(true);
 
     try {
-      const assistantMsg = await sendSessionMessage(kbId, sessionId, question);
-      setMessages((prev) => [
-        ...prev,
-        assistantMsg,
-      ]);
+      // Backend saves user message + enqueues job, returns user message
+      const userMsg = await sendSessionMessage(kbId, sessionId, question);
+      setMessages((prev) => [...prev, userMsg]);
       // Update session title if it was the first message
       if (messages.length === 0) {
         setSessions((prev) =>
@@ -127,18 +116,22 @@ export function QueryPanel({ kbId }: { kbId: string }) {
           )
         );
       }
+      // Trigger polling to pick up agent response when it arrives
+      setPollTrigger((n) => n + 1);
     } catch (e: any) {
+      setLoading(false);
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         session_id: sessionId,
         role: 'assistant',
-        content: `Error: ${e.message || 'Query failed'}`,
+        content: `Error: ${e.message || 'Failed to send message'}`,
         metadata: null,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
-      setLoading(false);
+      // loading state is managed by the polling effect —
+      // it clears when the assistant response arrives
     }
   };
 

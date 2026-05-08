@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod chat_worker;
 pub mod indexer;
 pub mod llm;
 pub mod rag_agent;

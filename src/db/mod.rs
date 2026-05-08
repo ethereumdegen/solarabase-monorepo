@@ -1,6 +1,7 @@
 pub mod api_keys;
 pub mod app_settings;
 pub mod audit_logs;
+pub mod chat_jobs;
 pub mod chat_sessions;
 pub mod documents;
 pub mod folders;

@@ -103,11 +103,8 @@ pub async fn send_message(
     // Check limit before saving anything
     crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
-    // Fetch recent conversation history for LLM context (before saving new message)
-    let history = db::chat_sessions::get_recent_messages(&state.db, sid, 20).await?;
-
     // Save user message
-    db::chat_sessions::add_message(
+    let user_msg = db::chat_sessions::add_message(
         &state.db,
         sid,
         crate::models::chat_session::ChatRole::User,
@@ -116,48 +113,15 @@ pub async fn send_message(
     )
     .await?;
 
-    let agent = state
-        .rag_cache
-        .get_agent(&kb_access.kb)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    // Enqueue job for background worker pool (returns immediately)
+    db::chat_jobs::create(
+        &state.db,
+        sid,
+        kb_access.kb.id,
+        kb_access.kb.owner_id,
+        &req.content,
+    )
+    .await?;
 
-    // Spawn agent work in a background task so it completes even if the
-    // client navigates away and the HTTP connection drops.
-    let db = state.db.clone();
-    let kb_id = kb_access.kb.id;
-    let owner_id = kb_access.kb.owner_id;
-    let content = req.content.clone();
-    let handle = tokio::spawn(async move {
-        let response = agent
-            .query_with_history(&content, &history)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        db::subscriptions::increment_usage(&db, kb_id, owner_id, "queries").await?;
-
-        let meta = serde_json::json!({
-            "reasoning_path": response.reasoning_path,
-            "tools_used": response.tools_used,
-        });
-
-        let msg = db::chat_sessions::add_message(
-            &db,
-            sid,
-            crate::models::chat_session::ChatRole::Assistant,
-            &response.answer,
-            Some(&meta),
-        )
-        .await?;
-
-        Ok::<_, AppError>(msg)
-    });
-
-    // Await the result — if client disconnects, the spawned task still runs
-    let msg = handle
-        .await
-        .map_err(|e| AppError::Internal(format!("agent task panicked: {e}")))?
-        .map_err(|e| e)?;
-
-    Ok(Json(serde_json::json!(msg)))
+    Ok(Json(serde_json::json!(user_msg)))
 }

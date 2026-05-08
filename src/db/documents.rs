@@ -120,9 +120,22 @@ pub async fn find_pending_global(pool: &PgPool) -> AppResult<Vec<Document>> {
 }
 
 /// Reset documents stuck in "processing" for over 10 minutes back to "uploaded".
+/// Also clears partial indexes so the retry starts fresh.
 pub async fn reset_stuck_processing(pool: &PgPool) -> AppResult<u64> {
+    // Clear partial indexes first to avoid unique constraint violations on retry
+    sqlx::query(
+        "DELETE FROM document_indexes WHERE document_id IN (SELECT id FROM documents WHERE status = 'processing' AND updated_at < now() - interval '10 minutes')",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "DELETE FROM page_indexes WHERE document_id IN (SELECT id FROM documents WHERE status = 'processing' AND updated_at < now() - interval '10 minutes')",
+    )
+    .execute(pool)
+    .await?;
+
     let result = sqlx::query(
-        "UPDATE documents SET status = 'uploaded', error_msg = NULL, updated_at = now() WHERE status = 'processing' AND updated_at < now() - interval '10 minutes'",
+        "UPDATE documents SET status = 'uploaded', page_count = NULL, error_msg = NULL, updated_at = now() WHERE status = 'processing' AND updated_at < now() - interval '10 minutes'",
     )
     .execute(pool)
     .await?;

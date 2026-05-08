@@ -14,14 +14,18 @@ type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 pub async fn run_indexer_loop(state: AppState) {
     tracing::info!("indexer worker started");
 
-    // Recover documents stuck in "processing" from a previous crash
-    match recover_stuck_documents(&state).await {
-        Ok(count) if count > 0 => tracing::info!(count, "recovered stuck documents"),
-        Err(e) => tracing::error!("failed to recover stuck documents: {e}"),
-        _ => {}
-    }
+    let mut tick: u64 = 0;
 
     loop {
+        // Recover stuck documents every ~60s (every 12 ticks) and on first tick
+        if tick % 12 == 0 {
+            match recover_stuck_documents(&state).await {
+                Ok(count) if count > 0 => tracing::info!(count, "recovered stuck documents"),
+                Err(e) => tracing::error!("failed to recover stuck documents: {e}"),
+                _ => {}
+            }
+        }
+
         match process_pending(&state).await {
             Ok(count) => {
                 if count > 0 {
@@ -32,6 +36,7 @@ pub async fn run_indexer_loop(state: AppState) {
                 tracing::error!("indexer error: {e}");
             }
         }
+        tick += 1;
         sleep(Duration::from_secs(5)).await;
     }
 }

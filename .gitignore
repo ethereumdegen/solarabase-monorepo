@@ -8,3 +8,5 @@ frontend/dist
 Thumbs.db
 *.log
 .sqlx/
+spice-report.json
+spice-traces/

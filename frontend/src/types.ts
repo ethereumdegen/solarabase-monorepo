@@ -100,6 +100,7 @@ export type PlanTier = 'free' | 'pro' | 'team';
 export type Subscription = {
   id: string;
   user_id: string;
+  kb_id: string;
   plan: PlanTier;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;

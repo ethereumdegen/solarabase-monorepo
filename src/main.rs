@@ -224,15 +224,16 @@ async fn main() {
             "/api/kb/{kb_id}/api-keys/{key_id}",
             delete(controllers::api_keys::revoke),
         )
-        // Billing (user-level)
+        // Billing (per-KB)
         .route(
-            "/api/billing",
-            get(controllers::billing::get_billing),
+            "/api/kb/{kb_id}/billing",
+            get(controllers::billing::get_kb_billing),
         )
         .route(
-            "/api/billing/checkout",
-            post(controllers::billing::create_checkout),
+            "/api/kb/{kb_id}/billing/checkout",
+            post(controllers::billing::create_kb_checkout),
         )
+        // Billing portal (user-level — manage payment methods)
         .route(
             "/api/billing/portal",
             post(controllers::billing::create_portal),

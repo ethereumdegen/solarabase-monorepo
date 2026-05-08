@@ -51,7 +51,7 @@ pub async fn create(
     }
     validate_slug(&req.slug)?;
 
-    plan_limits::check_kb_limit(&state.db, user.id).await?;
+    plan_limits::check_free_kb_limit(&state.db, user.id).await?;
 
     let default_model = db::app_settings::get(&state.db, "default_kb_model")
         .await?
@@ -130,7 +130,7 @@ pub async fn invite(
         return Err(AppError::Forbidden("admin required to invite".into()));
     }
 
-    plan_limits::check_member_limit(&state.db, kb_access.kb.owner_id, kb_access.kb.id).await?;
+    plan_limits::check_member_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     let role = req.role.unwrap_or(KbRole::Editor);
     let token = hex::encode(rand::random::<[u8; 16]>());

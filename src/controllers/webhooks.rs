@@ -31,11 +31,11 @@ pub async fn stripe_webhook(
     match event_type {
         "checkout.session.completed" => {
             let session = &event["data"]["object"];
-            let user_id = session["metadata"]["user_id"]
+            let kb_id = session["metadata"]["kb_id"]
                 .as_str()
                 .and_then(|s| uuid::Uuid::parse_str(s).ok());
 
-            if let Some(uid) = user_id {
+            if let Some(kid) = kb_id {
                 let customer_id = session["customer"].as_str().unwrap_or("");
                 let subscription_id = session["subscription"].as_str().unwrap_or("");
 
@@ -50,7 +50,7 @@ pub async fn stripe_webhook(
 
                 db::subscriptions::update_from_stripe(
                     &state.db,
-                    uid,
+                    kid,
                     &plan,
                     customer_id,
                     subscription_id,
@@ -58,7 +58,7 @@ pub async fn stripe_webhook(
                 )
                 .await?;
 
-                tracing::info!(user_id = %uid, plan = ?plan, "subscription activated");
+                tracing::info!(kb_id = %kid, plan = ?plan, "subscription activated");
             }
         }
         "customer.subscription.deleted" => {

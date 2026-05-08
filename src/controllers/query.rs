@@ -20,7 +20,7 @@ pub async fn query(
     State(state): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    plan_limits::check_query_limit(&state.db, kb_access.kb.owner_id).await?;
+    plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     tracing::info!(kb_id = %kb_access.kb.id, question = %req.question, "query received");
 
@@ -36,7 +36,7 @@ pub async fn query(
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     // Track usage
-    db::subscriptions::increment_usage(&state.db, kb_access.kb.owner_id, "queries").await?;
+    db::subscriptions::increment_usage(&state.db, kb_access.kb.id, kb_access.kb.owner_id, "queries").await?;
 
     // Persist to chat session if provided
     if let Some(session_id) = req.session_id {

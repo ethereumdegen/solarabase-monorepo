@@ -66,8 +66,8 @@ pub async fn upload(
     let size_bytes = bytes.len() as i64;
 
     // Plan limits
-    plan_limits::check_doc_limit(&state.db, kb_access.kb.owner_id, kb_access.kb.id).await?;
-    plan_limits::check_file_size(&state.db, kb_access.kb.owner_id, size_bytes).await?;
+    plan_limits::check_doc_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
+    plan_limits::check_file_size(&state.db, kb_access.kb.id, kb_access.kb.owner_id, size_bytes).await?;
 
     // Sanitize filename: strip path separators to prevent traversal
     let safe_filename: String = filename

@@ -80,8 +80,6 @@ pub async fn google_callback(
 
     tracing::info!(user_id = %user.id, email = %user.email, "user logged in");
 
-    // Ensure user has a subscription
-    db::subscriptions::get_or_create_free(&state.db, user.id).await?;
 
     let jwt = sign_jwt(user.id, &user.email, &state.config.jwt_secret)
         .map_err(|e| AppError::Internal(e.to_string()))?;
@@ -129,8 +127,6 @@ pub async fn dev_login(
     )
     .await?;
 
-    // Ensure user has a subscription
-    db::subscriptions::get_or_create_free(&state.db, user.id).await?;
 
     let jwt = sign_jwt(user.id, &user.email, &state.config.jwt_secret)
         .map_err(|e| AppError::Internal(e.to_string()))?;

@@ -20,7 +20,7 @@ pub async fn retrieve(
     State(state): State<AppState>,
     Json(req): Json<RetrieveRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    plan_limits::check_query_limit(&state.db, kb_access.kb.owner_id).await?;
+    plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     let max_pages = req.max_pages.unwrap_or(10);
     let documents = state
@@ -29,7 +29,7 @@ pub async fn retrieve(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    db::subscriptions::increment_usage(&state.db, kb_access.kb.owner_id, "queries").await?;
+    db::subscriptions::increment_usage(&state.db, kb_access.kb.id, kb_access.kb.owner_id, "queries").await?;
 
     Ok(Json(serde_json::json!({ "documents": documents })))
 }

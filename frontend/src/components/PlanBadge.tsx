@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { getBilling } from '../api';
+import { getKbBilling } from '../api';
 import type { PlanTier } from '../types';
 
-export function PlanBadge() {
+export function PlanBadge({ kbId }: { kbId: string }) {
   const [plan, setPlan] = useState<PlanTier | null>(null);
 
   useEffect(() => {
-    getBilling()
+    getKbBilling(kbId)
       .then((b) => setPlan(b.subscription.plan))
       .catch(() => {});
-  }, []);
+  }, [kbId]);
 
   if (!plan) return null;
 

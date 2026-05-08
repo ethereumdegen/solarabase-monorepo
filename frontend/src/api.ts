@@ -147,15 +147,16 @@ export const revokeApiKey = (kbId: string, keyId: string) =>
     credentials: 'include',
   });
 
-// Billing (user-level)
-export const getBilling = () =>
-  fetchJson<BillingInfo>('/api/billing');
-export const createCheckout = (plan: string) =>
-  fetchJson<{ url: string }>('/api/billing/checkout', {
+// Billing (per-KB)
+export const getKbBilling = (kbId: string) =>
+  fetchJson<BillingInfo>(`/api/kb/${kbId}/billing`);
+export const createKbCheckout = (kbId: string, plan: string) =>
+  fetchJson<{ url: string }>(`/api/kb/${kbId}/billing/checkout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plan }),
   });
+// Billing portal (user-level — manage payment methods)
 export const createPortal = () =>
   fetchJson<{ url: string }>('/api/billing/portal', {
     method: 'POST',

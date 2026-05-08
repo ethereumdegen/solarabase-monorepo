@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { getBilling } from '../api';
+import { getKbBilling } from '../api';
 
-export function useBilling() {
+export function useBilling(kbId: string) {
   return useQuery({
-    queryKey: ['billing'],
-    queryFn: () => getBilling(),
+    queryKey: ['billing', kbId],
+    queryFn: () => getKbBilling(kbId),
   });
 }

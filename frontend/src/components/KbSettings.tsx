@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { updateKbSettings, listApiKeys, createApiKey, revokeApiKey, listKbMembers, addKbMember, removeKbMember } from '../api';
 import type { Knowledgebase, ApiKeyInfo, KbMember, KbRole } from '../types';
 import { useAuth } from '../auth';
+import { KbBillingCard } from './KbBillingCard';
 
 export function KbSettings({
   kb,
@@ -183,6 +184,9 @@ export function KbSettings({
           </div>
         )}
       </div>
+
+      {/* Plan & Usage */}
+      <KbBillingCard kbId={kb.id} />
 
       {/* API Keys */}
       <div className="bg-[#111] border border-white/5 rounded-xl p-6">

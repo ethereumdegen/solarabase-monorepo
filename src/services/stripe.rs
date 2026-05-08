@@ -58,6 +58,7 @@ pub async fn create_checkout_session(
     price_id: &str,
     customer_email: &str,
     user_id: &str,
+    kb_id: &str,
     plan: &str,
 ) -> AppResult<String> {
     let client = reqwest::Client::new();
@@ -71,8 +72,9 @@ pub async fn create_checkout_session(
             ("line_items[0][price]", price_id),
             ("line_items[0][quantity]", "1"),
             ("customer_email", customer_email),
-            ("success_url", &format!("{public_url}/dashboard?billing=success")),
-            ("cancel_url", &format!("{public_url}/dashboard?billing=cancel")),
+            ("success_url", &format!("{public_url}/kb/{kb_id}?billing=success")),
+            ("cancel_url", &format!("{public_url}/kb/{kb_id}?billing=cancel")),
+            ("metadata[kb_id]", kb_id),
             ("metadata[user_id]", user_id),
             ("metadata[plan]", plan),
         ])

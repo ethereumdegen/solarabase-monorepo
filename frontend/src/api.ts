@@ -9,6 +9,7 @@ import type {
   ApiKeyCreated,
   BillingInfo,
   ChatSession,
+  ChatMessage,
   WikiPage,
   WikiPageDetail,
   KbMember,
@@ -188,6 +189,20 @@ export const inviteToKb = (kbId: string, email: string, role?: KbRole) =>
 // Chat sessions
 export const listSessions = (kbId: string) =>
   fetchJson<ChatSession[]>(`/api/kb/${kbId}/sessions`);
+export const createSession = (kbId: string, title?: string) =>
+  fetchJson<ChatSession>(`/api/kb/${kbId}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+export const getSession = (kbId: string, sessionId: string) =>
+  fetchJson<{ session: ChatSession; messages: ChatMessage[] }>(`/api/kb/${kbId}/sessions/${sessionId}`);
+export const sendSessionMessage = (kbId: string, sessionId: string, content: string) =>
+  fetchJson<ChatMessage>(`/api/kb/${kbId}/sessions/${sessionId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
 
 // Admin
 export const adminListUsers = () => fetchJson<User[]>('/api/admin/users');

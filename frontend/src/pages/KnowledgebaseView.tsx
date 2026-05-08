@@ -10,12 +10,12 @@ import { KbApiReference } from '../components/KbApiReference';
 import { getKbSettings } from '../api';
 import type { Knowledgebase } from '../types';
 
-type Tab = 'query' | 'documents' | 'wiki' | 'settings' | 'usage' | 'api';
+type Tab = 'chat' | 'documents' | 'wiki' | 'settings' | 'usage' | 'api';
 
 export function KnowledgebaseView() {
   const { kbId } = useParams<{ kbId: string }>();
   const [kb, setKb] = useState<Knowledgebase | null>(null);
-  const [tab, setTab] = useState<Tab>('query');
+  const [tab, setTab] = useState<Tab>('chat');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function KnowledgebaseView() {
             </div>
           </div>
           <nav className="flex gap-1 overflow-x-auto">
-            {(['query', 'documents', 'wiki', 'settings', 'usage', 'api'] as Tab[]).map((t) => (
+            {(['chat', 'documents', 'wiki', 'settings', 'usage', 'api'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -62,7 +62,7 @@ export function KnowledgebaseView() {
           </nav>
         </div>
 
-        {tab === 'query' && <QueryPanel kbId={kbId} />}
+        {tab === 'chat' && <QueryPanel kbId={kbId} />}
         {tab === 'documents' && <FolderBrowser kbId={kbId} />}
         {tab === 'wiki' && <WikiPanel kbId={kbId} />}
         {tab === 'settings' && <KbSettings kb={kb} onUpdated={setKb} />}

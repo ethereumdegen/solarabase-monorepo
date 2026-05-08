@@ -126,6 +126,15 @@ export type ChatSession = {
   updated_at: string;
 };
 
+export type ChatMessage = {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  metadata: { reasoning_path: string[]; tools_used: string[] } | null;
+  created_at: string;
+};
+
 export type KbRole = 'viewer' | 'editor' | 'admin';
 
 export type KbMember = {

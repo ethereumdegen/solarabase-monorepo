@@ -122,26 +122,42 @@ pub async fn send_message(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let response = agent
-        .query_with_history(&req.content, &history)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    // Spawn agent work in a background task so it completes even if the
+    // client navigates away and the HTTP connection drops.
+    let db = state.db.clone();
+    let kb_id = kb_access.kb.id;
+    let owner_id = kb_access.kb.owner_id;
+    let content = req.content.clone();
+    let handle = tokio::spawn(async move {
+        let response = agent
+            .query_with_history(&content, &history)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    db::subscriptions::increment_usage(&state.db, kb_access.kb.id, kb_access.kb.owner_id, "queries").await?;
+        db::subscriptions::increment_usage(&db, kb_id, owner_id, "queries").await?;
 
-    let meta = serde_json::json!({
-        "reasoning_path": response.reasoning_path,
-        "tools_used": response.tools_used,
+        let meta = serde_json::json!({
+            "reasoning_path": response.reasoning_path,
+            "tools_used": response.tools_used,
+        });
+
+        let msg = db::chat_sessions::add_message(
+            &db,
+            sid,
+            crate::models::chat_session::ChatRole::Assistant,
+            &response.answer,
+            Some(&meta),
+        )
+        .await?;
+
+        Ok::<_, AppError>(msg)
     });
 
-    let msg = db::chat_sessions::add_message(
-        &state.db,
-        sid,
-        crate::models::chat_session::ChatRole::Assistant,
-        &response.answer,
-        Some(&meta),
-    )
-    .await?;
+    // Await the result — if client disconnects, the spawned task still runs
+    let msg = handle
+        .await
+        .map_err(|e| AppError::Internal(format!("agent task panicked: {e}")))?
+        .map_err(|e| e)?;
 
     Ok(Json(serde_json::json!(msg)))
 }

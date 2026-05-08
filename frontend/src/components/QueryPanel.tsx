@@ -22,15 +22,38 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       .finally(() => setLoadingSessions(false));
   }, [kbId]);
 
-  // Load messages when session changes
+  // Load messages when session changes; poll if agent response is pending
   useEffect(() => {
     if (!activeSessionId) {
       setMessages([]);
       return;
     }
-    getSession(kbId, activeSessionId)
-      .then(({ messages: msgs }) => setMessages(msgs))
-      .catch(() => setMessages([]));
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchMessages = async () => {
+      try {
+        const { messages: msgs } = await getSession(kbId, activeSessionId);
+        if (cancelled) return;
+        setMessages(msgs);
+        // If last message is from user, agent is still working — poll
+        const last = msgs[msgs.length - 1];
+        if (last && last.role === 'user') {
+          setLoading(true);
+          pollTimer = setTimeout(fetchMessages, 3000);
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) setMessages([]);
+      }
+    };
+
+    fetchMessages();
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }, [kbId, activeSessionId]);
 
 

@@ -103,6 +103,9 @@ pub async fn send_message(
     // Check limit before saving anything
     crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
+    // Fetch recent conversation history for LLM context (before saving new message)
+    let history = db::chat_sessions::get_recent_messages(&state.db, sid, 20).await?;
+
     // Save user message
     db::chat_sessions::add_message(
         &state.db,
@@ -120,7 +123,7 @@ pub async fn send_message(
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let response = agent
-        .query(&req.content)
+        .query_with_history(&req.content, &history)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 

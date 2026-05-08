@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use metalcraft::{
-    create_react_agent, AgentState, CompiledGraph, Executor, GraphError,
+    create_react_agent, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
     Result as McResult, RunOutcome, Tool, ToolRegistry,
 };
 use rig::client::CompletionClient;
@@ -12,6 +12,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::db;
+use crate::models::chat_session::{ChatMessage, ChatRole};
 use crate::models::knowledgebase::Knowledgebase;
 
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
@@ -401,13 +402,52 @@ impl RagAgent {
         })
     }
 
+    /// Query with conversation history injected into agent state.
+    /// Prior messages become user/assistant turns so the LLM sees full context.
+    pub async fn query_with_history(
+        &self,
+        question: &str,
+        history: &[ChatMessage],
+    ) -> Result<RagResponse, BoxErr> {
+        let executor = Executor::new_from_arc(self.graph.clone()).max_steps(15);
+
+        let state = if history.is_empty() {
+            AgentState::new(question)
+        } else {
+            // Seed with first message, then append rest + current question
+            let first = &history[0];
+            let mut s = AgentState::new(&first.content);
+            for msg in &history[1..] {
+                match msg.role {
+                    ChatRole::User => {
+                        s.messages.push(AgentMessage::User(msg.content.clone()));
+                    }
+                    ChatRole::Assistant => {
+                        s.messages.push(AgentMessage::Assistant(msg.content.clone()));
+                    }
+                }
+            }
+            // Add the current question as the latest user message
+            s.messages.push(AgentMessage::User(question.into()));
+            s.is_done = false;
+            s
+        };
+
+        let thread_id = format!("query-{}", Uuid::new_v4());
+        let outcome = executor.run(state, &thread_id).await?;
+        Self::extract_response(outcome)
+    }
+
     pub async fn query(&self, question: &str) -> Result<RagResponse, BoxErr> {
         let executor = Executor::new_from_arc(self.graph.clone()).max_steps(15);
         let state = AgentState::new(question);
         let thread_id = format!("query-{}", Uuid::new_v4());
 
         let outcome = executor.run(state, &thread_id).await?;
+        Self::extract_response(outcome)
+    }
 
+    fn extract_response(outcome: RunOutcome<AgentState>) -> Result<RagResponse, BoxErr> {
         match outcome {
             RunOutcome::Completed(state) => {
                 let answer = state

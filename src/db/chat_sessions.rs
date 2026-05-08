@@ -91,3 +91,27 @@ pub async fn get_messages(
     .await?;
     Ok(messages)
 }
+
+/// Fetch the most recent N messages for a session (ordered oldest-first).
+/// Used to inject conversation history into the LLM prompt.
+pub async fn get_recent_messages(
+    pool: &PgPool,
+    session_id: Uuid,
+    limit: i64,
+) -> AppResult<Vec<ChatMessage>> {
+    let messages = sqlx::query_as::<_, ChatMessage>(
+        r#"
+        SELECT * FROM (
+            SELECT * FROM chat_messages
+            WHERE session_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+        ) sub ORDER BY created_at ASC
+        "#,
+    )
+    .bind(session_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    Ok(messages)
+}

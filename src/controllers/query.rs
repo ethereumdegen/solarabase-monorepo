@@ -34,10 +34,19 @@ pub async fn query(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let response = agent
-        .query(&req.question)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    // If session provided, include conversation history for multi-turn context
+    let response = if let Some(sid) = req.session_id {
+        let history = db::chat_sessions::get_recent_messages(&state.db, sid, 20).await?;
+        agent
+            .query_with_history(&req.question, &history)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    } else {
+        agent
+            .query(&req.question)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    };
 
     // Track usage
     db::subscriptions::increment_usage(&state.db, kb_access.kb.id, kb_access.kb.owner_id, "queries").await?;

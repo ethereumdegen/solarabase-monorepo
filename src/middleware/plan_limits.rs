@@ -12,7 +12,7 @@ pub async fn check_free_kb_limit(pool: &PgPool, user_id: Uuid) -> AppResult<()> 
     let count = db::subscriptions::count_free_kbs_for_user(pool, user_id).await?;
     if count >= max {
         return Err(AppError::PlanLimitExceeded(format!(
-            "Free KB limit reached ({max}). Upgrade an existing KB or create a paid KB."
+            "Free KB limit reached ({max}). Upgrade an existing KB to create another."
         )));
     }
     Ok(())

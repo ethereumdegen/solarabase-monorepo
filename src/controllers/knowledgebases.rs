@@ -51,6 +51,8 @@ pub async fn create(
     }
     validate_slug(&req.slug)?;
 
+    // Users can have 1 free KB + unlimited paid KBs.
+    // Block creation only if all existing KBs are on the free tier.
     plan_limits::check_free_kb_limit(&state.db, user.id).await?;
 
     let default_model = db::app_settings::get(&state.db, "default_kb_model")
@@ -75,6 +77,10 @@ pub async fn create(
         }
         e
     })?;
+
+    // Create a free subscription for the new KB
+    db::subscriptions::get_or_create_free(&state.db, kb.id, user.id).await?;
+
     Ok((StatusCode::CREATED, Json(serde_json::json!(kb))))
 }
 

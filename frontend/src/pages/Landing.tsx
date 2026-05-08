@@ -31,10 +31,7 @@ export function Landing() {
           <div className="flex flex-col md:flex-row md:items-center md:gap-12 lg:gap-20">
             {/* Left — text */}
             <div className="flex-1 min-w-0">
-              <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-8">
-                Knowledgebase<br />
-                <span className="text-white/30">as a Service</span>
-              </h2>
+              <div className="mb-8 h-24 md:h-32" />
               <p className="text-lg text-white/40 max-w-xl mb-12 leading-relaxed">
                 Upload documents, auto-index with AI, and query with a RAG agent.
                 Multi-tenant, per-KB configuration, API keys for programmatic access.
@@ -63,7 +60,7 @@ export function Landing() {
               <SparkleBox>
                 <div className="h-72 md:h-80 lg:h-96 flex flex-col items-start justify-end p-8 md:p-10">
                   <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.1]">
-                    <span className="text-white/90">Personalized</span>{' '}
+                    <span className="text-white/90">Agentic</span>{' '}
                     <span className="text-white/30">Knowledgebase</span>
                   </h3>
                 </div>
@@ -95,6 +92,15 @@ export function Landing() {
           </div>
         </section>
 
+        {/* Banner */}
+        <section className="w-full overflow-hidden">
+          <img
+            src="/banner-tech.webp"
+            alt=""
+            className="w-full h-48 md:h-64 lg:h-80 object-cover object-center opacity-80"
+          />
+        </section>
+
         {/* How it works */}
         <section className="border-t border-white/5">
           <div className="max-w-6xl mx-auto px-6 py-24">
@@ -111,7 +117,7 @@ export function Landing() {
         {/* CTA */}
         <section className="border-t border-white/5">
           <div className="max-w-4xl mx-auto px-6 py-32 text-center">
-            <h3 className="text-3xl md:text-4xl font-bold mb-4">Start building today</h3>
+            <h3 className="text-3xl md:text-4xl font-bold mb-4">Start answering today</h3>
             <p className="text-white/40 mb-8">Free tier. No credit card required.</p>
             <Link
               to="/login"

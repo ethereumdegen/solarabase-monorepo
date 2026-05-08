@@ -816,7 +816,7 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
                 className="text-white/20 hover:text-white/50 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none px-1"
                 title="Actions"
               >
-                &ctdot;
+                ⋯
               </button>
             </div>
           ))}

@@ -5,10 +5,12 @@ import { QueryPanel } from '../components/QueryPanel';
 import { FolderBrowser } from '../components/FolderBrowser';
 import { WikiPanel } from '../components/WikiPanel';
 import { KbSettings } from '../components/KbSettings';
+import { KbUsage } from '../components/KbUsage';
+import { KbApiReference } from '../components/KbApiReference';
 import { getKbSettings } from '../api';
 import type { Knowledgebase } from '../types';
 
-type Tab = 'query' | 'documents' | 'wiki' | 'settings';
+type Tab = 'query' | 'documents' | 'wiki' | 'settings' | 'usage' | 'api';
 
 export function KnowledgebaseView() {
   const { kbId } = useParams<{ kbId: string }>();
@@ -44,7 +46,7 @@ export function KnowledgebaseView() {
             </div>
           </div>
           <nav className="flex gap-1 overflow-x-auto">
-            {(['query', 'documents', 'wiki', 'settings'] as Tab[]).map((t) => (
+            {(['query', 'documents', 'wiki', 'settings', 'usage', 'api'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -54,7 +56,7 @@ export function KnowledgebaseView() {
                     : 'text-white/30 hover:text-white/60 hover:bg-white/5'
                 }`}
               >
-                {t}
+                {t === 'api' ? 'API' : t}
               </button>
             ))}
           </nav>
@@ -64,6 +66,8 @@ export function KnowledgebaseView() {
         {tab === 'documents' && <FolderBrowser kbId={kbId} />}
         {tab === 'wiki' && <WikiPanel kbId={kbId} />}
         {tab === 'settings' && <KbSettings kb={kb} onUpdated={setKb} />}
+        {tab === 'usage' && <KbUsage kbId={kbId} />}
+        {tab === 'api' && <KbApiReference kbId={kbId} />}
       </div>
     </Layout>
   );

@@ -27,38 +27,48 @@ export function Landing() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="max-w-4xl mx-auto px-6 pt-24 pb-32">
-          <div className="mb-12">
-            <SparkleBox>
-              <p className="text-sm md:text-base font-medium tracking-wide text-white/70">
-                personalized knowledgebase
+        <section className="max-w-6xl mx-auto px-6 pt-24 pb-32">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-12 lg:gap-20">
+            {/* Left — text */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-8">
+                Knowledgebase<br />
+                <span className="text-white/30">as a Service</span>
+              </h2>
+              <p className="text-lg text-white/40 max-w-xl mb-12 leading-relaxed">
+                Upload documents, auto-index with AI, and query with a RAG agent.
+                Multi-tenant, per-KB configuration, API keys for programmatic access.
               </p>
-            </SparkleBox>
-          </div>
-          <h2 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-8">
-            Knowledgebase<br />
-            <span className="text-white/30">as a Service</span>
-          </h2>
-          <p className="text-lg text-white/40 max-w-xl mb-12 leading-relaxed">
-            Upload documents, auto-index with AI, and query with a RAG agent.
-            Multi-tenant, per-KB configuration, API keys for programmatic access.
-          </p>
-          <div className="flex gap-4">
-            <Link
-              to="/login"
-              className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
-            >
-              Get Started Free
-              <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </Link>
-            <Link
-              to="/docs"
-              className="px-6 py-3 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:border-white/30 hover:text-white/80 transition-colors"
-            >
-              Read the Docs
-            </Link>
+              <div className="flex gap-4">
+                <Link
+                  to="/login"
+                  className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
+                >
+                  Get Started Free
+                  <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+                <Link
+                  to="/docs"
+                  className="px-6 py-3 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:border-white/30 hover:text-white/80 transition-colors"
+                >
+                  Read the Docs
+                </Link>
+              </div>
+            </div>
+
+            {/* Right — sparkle box */}
+            <div className="mt-12 md:mt-0 md:w-[420px] lg:w-[480px] flex-shrink-0">
+              <SparkleBox>
+                <div className="h-72 md:h-80 lg:h-96 flex flex-col items-start justify-end p-8 md:p-10">
+                  <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.1]">
+                    <span className="text-white/90">Personalized</span>{' '}
+                    <span className="text-white/30">Knowledgebase</span>
+                  </h3>
+                </div>
+              </SparkleBox>
+            </div>
           </div>
         </section>
 

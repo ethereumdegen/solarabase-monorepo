@@ -1,16 +1,14 @@
 import { useEffect, useRef } from 'react';
 import anime from 'animejs';
 
-const PARTICLE_COUNT = 80;
-
-function randomBetween(a: number, b: number) {
-  return a + Math.random() * (b - a);
-}
+const COLS = 20;
+const ROWS = 12;
+const DOT_SIZE = 3;
+const GAP = 28;
 
 export function SparkleBox({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<{ x: number; y: number; alpha: number; size: number; tx: number; ty: number }[]>([]);
   const animRef = useRef<ReturnType<typeof requestAnimationFrame>>(0);
 
   useEffect(() => {
@@ -19,73 +17,76 @@ export function SparkleBox({ children }: { children: React.ReactNode }) {
     if (!canvas || !container) return;
 
     const ctx = canvas.getContext('2d')!;
-    let w = 0;
-    let h = 0;
+    const dpr = window.devicePixelRatio || 1;
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
-      w = rect.width;
-      h = rect.height;
-      canvas.width = w * window.devicePixelRatio;
-      canvas.height = h * window.devicePixelRatio;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
 
-    // Init particles along edges + scattered inside
-    const particles = Array.from({ length: PARTICLE_COUNT }, () => {
-      const onEdge = Math.random() < 0.6;
-      let x: number, y: number;
-      if (onEdge) {
-        const edge = Math.floor(Math.random() * 4);
-        switch (edge) {
-          case 0: x = Math.random() * w; y = randomBetween(-2, 4); break;
-          case 1: x = Math.random() * w; y = h + randomBetween(-4, 2); break;
-          case 2: x = randomBetween(-2, 4); y = Math.random() * h; break;
-          default: x = w + randomBetween(-4, 2); y = Math.random() * h; break;
-        }
-      } else {
-        x = Math.random() * w;
-        y = Math.random() * h;
-      }
-      return {
-        x, y,
-        alpha: 0,
-        size: randomBetween(1, 2.5),
-        tx: x + randomBetween(-20, 20),
-        ty: y + randomBetween(-20, 20),
-      };
-    });
-    particlesRef.current = particles;
+    const rect = container.getBoundingClientRect();
+    const offsetX = (rect.width - (COLS - 1) * GAP) / 2;
+    const offsetY = (rect.height - (ROWS - 1) * GAP) / 2 + 20;
 
-    // Animate particles with anime.js — staggered fade in/out + drift
-    const animateParticles = () => {
+    // Create grid dots
+    const dots = [];
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        dots.push({
+          x: offsetX + col * GAP,
+          y: offsetY + row * GAP,
+          alpha: 0,
+          scale: 1,
+        });
+      }
+    }
+
+    // Animate: staggered waves of dots lighting up and fading
+    const runWave = () => {
+      // Reset all
+      dots.forEach(d => { d.alpha = 0; d.scale = 1; });
+
+      // Pick random subset to light up (30-60%)
+      const indices = dots.map((_, i) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      const count = Math.floor(dots.length * (0.3 + Math.random() * 0.3));
+      const active = indices.slice(0, count).map(i => dots[i]);
+
       anime({
-        targets: particles,
+        targets: active,
         alpha: [
-          { value: () => randomBetween(0.3, 1), duration: () => randomBetween(800, 2000), easing: 'easeInOutSine' },
-          { value: 0, duration: () => randomBetween(800, 2000), easing: 'easeInOutSine' },
+          { value: () => 0.15 + Math.random() * 0.85, duration: () => 600 + Math.random() * 1200, easing: 'easeOutQuad' },
+          { value: 0, duration: () => 800 + Math.random() * 1500, easing: 'easeInQuad' },
         ],
-        x: () => ({ value: (el: any) => el.tx + randomBetween(-15, 15), duration: randomBetween(2000, 4000) }),
-        y: () => ({ value: (el: any) => el.ty + randomBetween(-10, 10), duration: randomBetween(2000, 4000) }),
-        delay: anime.stagger(40, { from: 'center' }),
-        complete: animateParticles,
-        easing: 'easeInOutSine',
+        scale: [
+          { value: () => 1 + Math.random() * 0.8, duration: () => 600 + Math.random() * 1000, easing: 'easeOutQuad' },
+          { value: 1, duration: () => 800 + Math.random() * 1000, easing: 'easeInQuad' },
+        ],
+        delay: anime.stagger(15, { grid: [COLS, ROWS], from: Math.floor(Math.random() * dots.length) }),
+        complete: runWave,
       });
     };
-    animateParticles();
+    runWave();
 
     // Render loop
     const draw = () => {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
       ctx.clearRect(0, 0, w, h);
-      for (const p of particles) {
-        if (p.alpha <= 0) continue;
-        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+
+      for (const dot of dots) {
+        if (dot.alpha <= 0.01) continue;
+        const r = DOT_SIZE * dot.scale * 0.5;
+        ctx.fillStyle = `rgba(255, 255, 255, ${dot.alpha})`;
+        ctx.fillRect(dot.x - r, dot.y - r, r * 2, r * 2);
       }
       animRef.current = requestAnimationFrame(draw);
     };
@@ -95,18 +96,21 @@ export function SparkleBox({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animRef.current);
-      anime.remove(particles);
+      anime.remove(dots);
     };
   }, []);
 
   return (
-    <div ref={containerRef} className="relative inline-block border border-white/[0.08] rounded-2xl overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative border border-white/[0.08] rounded-2xl overflow-hidden bg-[#0f0f0f]"
+    >
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 1 }}
       />
-      <div className="relative z-10 px-8 py-6 md:px-12 md:py-8 bg-gradient-to-br from-white/[0.03] to-transparent">
+      <div className="relative z-10">
         {children}
       </div>
     </div>

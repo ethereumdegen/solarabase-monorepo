@@ -7,6 +7,7 @@ import {
   updateFolderCategory,
   deleteDocument,
   reindexDocument,
+  moveDocument,
   getDocumentContentUrl,
   getDocumentPages,
 } from '../api';
@@ -176,6 +177,148 @@ function FolderContextMenu({
         className="w-full text-left px-4 py-2 text-sm text-red-400/60 hover:bg-white/5 hover:text-red-400">
         Delete
       </button>
+    </div>
+  );
+}
+
+/* ---------- Document Context Menu ---------- */
+function DocumentContextMenu({
+  doc,
+  position,
+  onClose,
+  onReindex,
+  onMove,
+  onDelete,
+}: {
+  doc: Document;
+  position: { x: number; y: number };
+  onClose: () => void;
+  onReindex: () => void;
+  onMove: () => void;
+  onDelete: () => void;
+}) {
+  useEffect(() => {
+    const close = () => onClose();
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed z-50 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl py-1 min-w-[160px]"
+      style={{ top: position.y, left: position.x }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {(doc.status === 'indexed' || doc.status === 'failed') && (
+        <button onClick={onReindex}
+          className="w-full text-left px-4 py-2 text-sm text-white/60 hover:bg-white/5 hover:text-white/80">
+          Re-index
+        </button>
+      )}
+      <button onClick={onMove}
+        className="w-full text-left px-4 py-2 text-sm text-white/60 hover:bg-white/5 hover:text-white/80">
+        Move to&hellip;
+      </button>
+      <button onClick={onDelete}
+        className="w-full text-left px-4 py-2 text-sm text-red-400/60 hover:bg-white/5 hover:text-red-400">
+        Delete
+      </button>
+    </div>
+  );
+}
+
+/* ---------- Move Document Modal ---------- */
+function MoveDocumentModal({
+  kbId,
+  doc,
+  currentFolderId,
+  onClose,
+  onMoved,
+}: {
+  kbId: string;
+  doc: Document;
+  currentFolderId: string | undefined;
+  onClose: () => void;
+  onMoved: () => void;
+}) {
+  const [folders, setFolders] = useState<DocFolder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [moving, setMoving] = useState(false);
+
+  useEffect(() => {
+    listFolderContents(kbId, undefined)
+      .then((data) => setFolders(data.folders))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [kbId]);
+
+  const handleMove = async (folderId: string | null) => {
+    setMoving(true);
+    try {
+      await moveDocument(kbId, doc.id, folderId);
+      onMoved();
+    } catch (e: any) {
+      alert(e.message || 'Failed to move document');
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  const isCurrentFolder = (id: string | null) =>
+    (id === null && !currentFolderId) || id === currentFolderId;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-white/5">
+          <h3 className="text-lg font-semibold text-white/90">Move "{doc.filename}"</h3>
+        </div>
+        <div className="p-4 max-h-[50vh] overflow-auto">
+          {loading ? (
+            <p className="text-white/30 text-center py-4">Loading folders...</p>
+          ) : (
+            <div className="space-y-1">
+              <button
+                disabled={isCurrentFolder(null) || moving}
+                onClick={() => handleMove(null)}
+                className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                  isCurrentFolder(null)
+                    ? 'text-white/20 cursor-not-allowed'
+                    : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                }`}
+              >
+                Root (no folder)
+                {isCurrentFolder(null) && <span className="text-xs text-white/15 ml-2">(current)</span>}
+              </button>
+              {folders.map((f) => (
+                <button
+                  key={f.id}
+                  disabled={isCurrentFolder(f.id) || moving}
+                  onClick={() => handleMove(f.id)}
+                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                    isCurrentFolder(f.id)
+                      ? 'text-white/20 cursor-not-allowed'
+                      : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                  }`}
+                >
+                  <span className="truncate">{f.name}</span>
+                  {f.category && <CategoryBadge category={f.category} />}
+                  {isCurrentFolder(f.id) && <span className="text-xs text-white/15 ml-auto">(current)</span>}
+                </button>
+              ))}
+              {folders.length === 0 && (
+                <p className="text-white/30 text-center py-4 text-sm">No folders. Create one first.</p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-white/5 flex justify-end">
+          <button onClick={onClose}
+            className="px-4 py-2 text-sm text-white/40 hover:text-white/60 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -426,6 +569,9 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
   const [renamingFolder, setRenamingFolder] = useState<DocFolder | null>(null);
   const [categoryFolder, setCategoryFolder] = useState<DocFolder | null>(null);
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
+  const [docMenu, setDocMenu] = useState<{ doc: Document; x: number; y: number } | null>(null);
+  const [moveDoc, setMoveDoc] = useState<Document | null>(null);
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -497,17 +643,24 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
     }
   };
 
-  const handleDeleteDoc = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!confirm('Delete this document?')) return;
-    await deleteDocument(kbId, id);
+  const handleDeleteDoc = async (doc: Document) => {
+    if (!confirm(`Delete "${doc.filename}"?`)) return;
+    await deleteDocument(kbId, doc.id);
     load();
   };
 
-  const handleReindex = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    await reindexDocument(kbId, id);
+  const handleReindex = async (doc: Document) => {
+    await reindexDocument(kbId, doc.id);
     load();
+  };
+
+  const handleDropOnFolder = async (docId: string, folderId: string) => {
+    try {
+      await moveDocument(kbId, docId, folderId);
+      load();
+    } catch (e: any) {
+      alert(e.message || 'Failed to move document');
+    }
   };
 
   const handleFolderContextMenu = (e: React.MouseEvent, folder: DocFolder) => {
@@ -571,7 +724,23 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
               key={folder.id}
               onClick={() => navigateTo(folder.id)}
               onContextMenu={(e) => handleFolderContextMenu(e, folder)}
-              className="bg-[#111] border border-white/5 rounded-xl p-4 hover:bg-white/5 transition-colors cursor-pointer group"
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes('application/x-doc-id')) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverFolder(folder.id);
+                }
+              }}
+              onDragLeave={() => setDragOverFolder(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverFolder(null);
+                const docId = e.dataTransfer.getData('application/x-doc-id');
+                if (docId) handleDropOnFolder(docId, folder.id);
+              }}
+              className={`bg-[#111] border rounded-xl p-4 hover:bg-white/5 transition-colors cursor-pointer group ${
+                dragOverFolder === folder.id ? 'border-blue-400/50 bg-blue-400/5' : 'border-white/5'
+              }`}
             >
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
@@ -601,8 +770,13 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
           {docs.map((doc, i) => (
             <div
               key={doc.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/x-doc-id', doc.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
               onClick={() => setViewingDoc(doc)}
-              className={`flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors cursor-pointer ${
+              className={`flex items-center gap-4 px-5 py-4 hover:bg-white/5 transition-colors cursor-pointer group ${
                 i > 0 ? 'border-t border-white/5' : ''
               }`}
             >
@@ -634,24 +808,16 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
                 )}
               </div>
 
-              <div className="flex items-center gap-1">
-                {(doc.status === 'indexed' || doc.status === 'failed') && (
-                  <button
-                    onClick={(e) => handleReindex(e, doc.id)}
-                    className="text-white/20 hover:text-blue-400 transition-colors text-xs px-1"
-                    title="Re-index"
-                  >
-                    &#8635;
-                  </button>
-                )}
-                <button
-                  onClick={(e) => handleDeleteDoc(e, doc.id)}
-                  className="text-white/20 hover:text-red-400 transition-colors text-sm"
-                  title="Delete"
-                >
-                  x
-                </button>
-              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDocMenu({ doc, x: e.clientX, y: e.clientY });
+                }}
+                className="text-white/20 hover:text-white/50 opacity-0 group-hover:opacity-100 transition-opacity text-lg leading-none px-1"
+                title="Actions"
+              >
+                &ctdot;
+              </button>
             </div>
           ))}
         </div>
@@ -697,6 +863,27 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
           current={categoryFolder.category}
           onSubmit={handleSetCategory}
           onClose={() => setCategoryFolder(null)}
+        />
+      )}
+
+      {docMenu && (
+        <DocumentContextMenu
+          doc={docMenu.doc}
+          position={{ x: docMenu.x, y: docMenu.y }}
+          onClose={() => setDocMenu(null)}
+          onReindex={() => { handleReindex(docMenu.doc); setDocMenu(null); }}
+          onMove={() => { setMoveDoc(docMenu.doc); setDocMenu(null); }}
+          onDelete={() => { handleDeleteDoc(docMenu.doc); setDocMenu(null); }}
+        />
+      )}
+
+      {moveDoc && (
+        <MoveDocumentModal
+          kbId={kbId}
+          doc={moveDoc}
+          currentFolderId={currentFolderId}
+          onClose={() => setMoveDoc(null)}
+          onMoved={() => { setMoveDoc(null); load(); }}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Footer } from '../components/Footer';
+import { NetworkBanner } from '../components/NetworkBanner';
 import { SparkleBox } from '../components/SparkleBox';
 
 export function Landing() {
@@ -93,13 +94,7 @@ export function Landing() {
         </section>
 
         {/* Banner */}
-        <section className="w-full overflow-hidden">
-          <img
-            src="/banner-tech.png"
-            alt=""
-            className="w-full h-48 md:h-64 lg:h-80 object-cover object-center opacity-80"
-          />
-        </section>
+        <NetworkBanner />
 
         {/* How it works */}
         <section className="border-t border-white/5">

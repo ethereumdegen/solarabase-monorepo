@@ -9,11 +9,11 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
-      <header className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between w-full">
+      <header className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between w-full">
         <h1 className="text-lg font-medium tracking-tight text-white/90">Solarabase</h1>
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-3 sm:gap-6">
           <Link to="/docs" className="text-sm text-white/40 hover:text-white/80 transition-colors">Docs</Link>
-          <Link to="/docs/api" className="text-sm text-white/40 hover:text-white/80 transition-colors">API</Link>
+          <Link to="/docs/api" className="text-sm text-white/40 hover:text-white/80 transition-colors hidden sm:inline">API</Link>
           {user ? (
             <Link to="/dashboard" className="px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors">
               Dashboard
@@ -28,19 +28,19 @@ export function Landing() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="max-w-6xl mx-auto px-6 pt-24 pb-32">
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-24 pb-16 sm:pb-32">
           <div className="flex flex-col md:flex-row md:items-center md:gap-12 lg:gap-20">
             {/* Left — text */}
             <div className="flex-1 min-w-0">
-              <div className="mb-8 h-24 md:h-32" />
-              <p className="text-lg text-white/40 max-w-xl mb-12 leading-relaxed">
+              <div className="mb-6 sm:mb-8 h-12 sm:h-24 md:h-32" />
+              <p className="text-base sm:text-lg text-white/40 max-w-xl mb-8 sm:mb-12 leading-relaxed">
                 Upload documents, auto-index with AI, and query with a RAG agent.
                 Multi-tenant, per-KB configuration, API keys for programmatic access.
               </p>
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Link
                   to="/login"
-                  className="group inline-flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
+                  className="group inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"
                 >
                   Get Started Free
                   <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -49,7 +49,7 @@ export function Landing() {
                 </Link>
                 <Link
                   to="/docs"
-                  className="px-6 py-3 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:border-white/30 hover:text-white/80 transition-colors"
+                  className="px-6 py-3 border border-white/10 text-white/60 rounded-lg text-sm font-medium hover:border-white/30 hover:text-white/80 transition-colors text-center"
                 >
                   Read the Docs
                 </Link>
@@ -72,7 +72,7 @@ export function Landing() {
 
         {/* Features */}
         <section className="border-t border-white/5">
-          <div className="max-w-6xl mx-auto px-6 py-24">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 rounded-2xl overflow-hidden">
               <FeatureCard
                 tag="01"
@@ -98,9 +98,9 @@ export function Landing() {
 
         {/* How it works */}
         <section className="border-t border-white/5">
-          <div className="max-w-6xl mx-auto px-6 py-24">
-            <h3 className="text-sm text-white/30 uppercase tracking-widest mb-12">How it works</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+            <h3 className="text-sm text-white/30 uppercase tracking-widest mb-8 sm:mb-12">How it works</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
               <Step n="01" title="Create" desc="Sign up and create a knowledgebase in seconds." />
               <Step n="02" title="Upload" desc="Drop in PDFs, markdown, text files. Any docs." />
               <Step n="03" title="Index" desc="AI auto-indexes every page into tree structures." />
@@ -111,7 +111,7 @@ export function Landing() {
 
         {/* CTA */}
         <section className="border-t border-white/5">
-          <div className="max-w-4xl mx-auto px-6 py-32 text-center">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-32 text-center">
             <h3 className="text-3xl md:text-4xl font-bold mb-4">Start answering today</h3>
             <p className="text-white/40 mb-8">Free tier. No credit card required.</p>
             <Link

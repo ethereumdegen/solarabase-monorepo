@@ -45,12 +45,12 @@ export function KnowledgebaseView() {
               )}
             </div>
           </div>
-          <nav className="flex gap-1 overflow-x-auto">
+          <nav className="flex gap-1 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
             {(['chat', 'documents', 'wiki', 'settings', 'usage', 'api'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize whitespace-nowrap cursor-pointer ${
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors capitalize whitespace-nowrap cursor-pointer ${
                   tab === t
                     ? 'bg-white/10 text-white'
                     : 'text-white/30 hover:text-white/60 hover:bg-white/5'

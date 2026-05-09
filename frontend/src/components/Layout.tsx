@@ -29,7 +29,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
       <header className="border-b border-white/5 sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <Link to="/dashboard" className="text-lg font-medium text-white/90 tracking-tight">
             Solarabase
           </Link>
@@ -47,7 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       {user.name[0]}
                     </div>
                   )}
-                  <span>{user.email}</span>
+                  <span className="hidden sm:inline">{user.email}</span>
                 </button>
                 {menuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-[#111] border border-white/10 rounded-lg shadow-xl py-1 z-50">
@@ -87,7 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="px-6 py-8 flex-1">{children}</main>
+      <main className="px-4 sm:px-6 py-6 sm:py-8 flex-1">{children}</main>
       <Footer />
     </div>
   );

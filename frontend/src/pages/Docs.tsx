@@ -5,9 +5,9 @@ export function Docs() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
       <header className="border-b border-white/5 sticky top-0 z-10 bg-[#0a0a0a]/80 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold text-white/90 tracking-tight">Solarabase</Link>
-          <nav className="flex items-center gap-4 text-sm">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <Link to="/" className="text-lg sm:text-xl font-bold text-white/90 tracking-tight">Solarabase</Link>
+          <nav className="flex items-center gap-3 sm:gap-4 text-sm">
             <Link to="/docs" className="text-white/90 font-medium">Docs</Link>
             <Link to="/docs/api" className="text-white/30 hover:text-white/60">API</Link>
             <Link to="/login" className="px-4 py-2 bg-white/10 text-white rounded-lg font-medium hover:bg-white/15 transition-colors">Sign In</Link>
@@ -15,7 +15,7 @@ export function Docs() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto px-6 py-12">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <h1 className="text-3xl font-bold text-white/90 mb-2">Documentation</h1>
         <p className="text-white/30 mb-10">Everything you need to get started with Solarabase.</p>
 

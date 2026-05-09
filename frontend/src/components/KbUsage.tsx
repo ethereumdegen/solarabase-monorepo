@@ -166,6 +166,7 @@ export function KbUsage({ kbId }: { kbId: string }) {
                 {tier} {tier === plan && <span className="text-xs font-normal text-white/20">(current)</span>}
               </p>
               <div className="space-y-1.5 text-xs text-white/40">
+                <p>{tier === 'free' ? '1 KB' : 'Unlimited KBs'}</p>
                 <p>{PLAN_QUERY_LIMITS[tier]?.toLocaleString() || 'Unlimited'} queries/mo</p>
                 <p>{PLAN_DOC_LIMITS[tier] || 'Unlimited'} docs/KB</p>
                 <p>{PLAN_MEMBER_LIMITS[tier] || 'Unlimited'} members</p>

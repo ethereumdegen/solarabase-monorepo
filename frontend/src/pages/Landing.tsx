@@ -113,7 +113,7 @@ export function Landing() {
         <section className="border-t border-white/5">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-32 text-center">
             <h3 className="text-3xl md:text-4xl font-bold mb-4">Start answering today</h3>
-            <p className="text-white/40 mb-8">Free tier. No credit card required.</p>
+            <p className="text-white/40 mb-8">1 free knowledgebase. No credit card required.</p>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 px-8 py-3.5 bg-white text-black rounded-lg text-sm font-medium hover:bg-white/90 transition-colors"

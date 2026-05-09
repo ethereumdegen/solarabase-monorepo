@@ -55,6 +55,10 @@ export function Docs() {
           </Section>
 
           <Section title="Plans">
+            <p className="text-sm text-white/40 mb-4">
+              Every user gets 1 free knowledgebase. Upgrade individual KBs to Pro or Team for higher limits.
+              Paid KBs are unlimited — you can create as many as you need.
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
@@ -66,10 +70,11 @@ export function Docs() {
                   </tr>
                 </thead>
                 <tbody className="text-white/60">
-                  <PlanRow feature="Knowledgebases" free="3" pro="10" team="Unlimited" />
+                  <PlanRow feature="Knowledgebases" free="1" pro="Unlimited" team="Unlimited" />
                   <PlanRow feature="Docs per KB" free="50" pro="Unlimited" team="Unlimited" />
-                  <PlanRow feature="Queries / month" free="500" pro="5,000" team="Unlimited" />
+                  <PlanRow feature="Queries / month" free="1,000" pro="5,000" team="Unlimited" />
                   <PlanRow feature="Team members" free="2" pro="5" team="Unlimited" />
+                  <PlanRow feature="API keys" free="3" pro="10" team="Unlimited" />
                   <PlanRow feature="Max file size" free="100 MB" pro="500 MB" team="1 GB" />
                 </tbody>
               </table>

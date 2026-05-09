@@ -1,27 +1,9 @@
 import { useEffect, useState } from 'react';
 import { listDocuments, deleteDocument, reindexDocument, getDocumentContentUrl, getDocumentPages } from '../api';
 import type { Document } from '../types';
-
-const STATUS_COLORS: Record<string, string> = {
-  uploaded: 'bg-amber-500/15 text-amber-400',
-  processing: 'bg-blue-500/15 text-blue-400',
-  indexed: 'bg-green-500/15 text-green-400',
-  failed: 'bg-red-500/15 text-red-400',
-};
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function timeAgo(dateStr: string): string {
-  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
+import { formatBytes, timeAgo } from '../utils/format';
+import { STATUS_COLORS } from '../constants/colors';
+import { ProgressBar } from './ui/ProgressBar';
 
 function Spinner() {
   return (
@@ -29,15 +11,6 @@ function Spinner() {
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
-  );
-}
-
-function ProgressBar({ value, max }: { value: number; max: number }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="w-full bg-white/5 rounded-full h-1.5 mt-1.5">
-      <div className="bg-white/40 h-1.5 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-    </div>
   );
 }
 

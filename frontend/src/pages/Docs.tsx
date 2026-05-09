@@ -1,5 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Footer } from '../components/Footer';
+import {
+  PLAN_QUERY_LIMITS,
+  PLAN_DOC_LIMITS,
+  PLAN_MEMBER_LIMITS,
+  PLAN_API_KEY_LIMITS,
+  PLAN_FILE_SIZE,
+  PLAN_KB_LIMITS,
+} from '../constants/planLimits';
 
 export function Docs() {
   return (
@@ -70,12 +78,12 @@ export function Docs() {
                   </tr>
                 </thead>
                 <tbody className="text-white/60">
-                  <PlanRow feature="Knowledgebases" free="1" pro="Unlimited" team="Unlimited" />
-                  <PlanRow feature="Docs per KB" free="50" pro="Unlimited" team="Unlimited" />
-                  <PlanRow feature="Queries / month" free="1,000" pro="5,000" team="Unlimited" />
-                  <PlanRow feature="Team members" free="2" pro="5" team="Unlimited" />
-                  <PlanRow feature="API keys" free="3" pro="10" team="Unlimited" />
-                  <PlanRow feature="Max file size" free="100 MB" pro="500 MB" team="1 GB" />
+                  <PlanRow feature="Knowledgebases" free={PLAN_KB_LIMITS.free} pro={PLAN_KB_LIMITS.pro} team={PLAN_KB_LIMITS.team} />
+                  <PlanRow feature="Docs per KB" free={String(PLAN_DOC_LIMITS.free ?? 'Unlimited')} pro={String(PLAN_DOC_LIMITS.pro ?? 'Unlimited')} team={String(PLAN_DOC_LIMITS.team ?? 'Unlimited')} />
+                  <PlanRow feature="Queries / month" free={PLAN_QUERY_LIMITS.free?.toLocaleString() ?? 'Unlimited'} pro={PLAN_QUERY_LIMITS.pro?.toLocaleString() ?? 'Unlimited'} team={PLAN_QUERY_LIMITS.team?.toLocaleString() ?? 'Unlimited'} />
+                  <PlanRow feature="Team members" free={String(PLAN_MEMBER_LIMITS.free ?? 'Unlimited')} pro={String(PLAN_MEMBER_LIMITS.pro ?? 'Unlimited')} team={String(PLAN_MEMBER_LIMITS.team ?? 'Unlimited')} />
+                  <PlanRow feature="API keys" free={String(PLAN_API_KEY_LIMITS.free ?? 'Unlimited')} pro={String(PLAN_API_KEY_LIMITS.pro ?? 'Unlimited')} team={String(PLAN_API_KEY_LIMITS.team ?? 'Unlimited')} />
+                  <PlanRow feature="Max file size" free={PLAN_FILE_SIZE.free} pro={PLAN_FILE_SIZE.pro} team={PLAN_FILE_SIZE.team} />
                 </tbody>
               </table>
             </div>

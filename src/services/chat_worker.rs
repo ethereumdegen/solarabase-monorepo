@@ -84,11 +84,7 @@ async fn process_job(state: &AppState, worker_id: &str, job: &ChatJob) {
     // Update session title from first query if still default
     if let Ok(Some(session)) = db::chat_sessions::get_session(&state.db, job.session_id).await {
         if session.title == "New Chat" {
-            let title = if job.content.len() > 50 {
-                format!("{}...", &job.content[..job.content.char_indices().nth(50).map(|(i, _)| i).unwrap_or(job.content.len())])
-            } else {
-                job.content.clone()
-            };
+            let title = crate::utils::truncate_at_char(&job.content, 50);
             let _ = db::chat_sessions::update_title(&state.db, job.session_id, &title).await;
         }
     }

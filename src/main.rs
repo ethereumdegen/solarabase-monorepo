@@ -17,6 +17,7 @@ mod middleware;
 mod models;
 mod services;
 mod state;
+mod utils;
 
 use config::AppConfig;
 use services::rag_cache::RagCache;

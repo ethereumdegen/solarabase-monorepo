@@ -6,12 +6,29 @@ use futures::stream::Stream;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use sqlx::PgPool;
+
 use crate::auth::extractors::KbAccess;
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::models::chat_session::ChatSession;
 use crate::state::AppState;
 
 const MAX_MESSAGE_LENGTH: usize = 32_000;
+
+fn verify_session_access(session: &ChatSession, kb_access: &KbAccess) -> AppResult<()> {
+    if session.kb_id != kb_access.kb.id || session.user_id != kb_access.user.id {
+        return Err(AppError::NotFound("session not found".into()));
+    }
+    Ok(())
+}
+
+async fn update_title_if_default(pool: &PgPool, session: &ChatSession, content: &str) {
+    if session.title == "New Chat" {
+        let title = crate::utils::truncate_at_char(content, 50);
+        let _ = db::chat_sessions::update_title(pool, session.id, &title).await;
+    }
+}
 
 #[derive(Deserialize)]
 pub struct CreateSession {
@@ -64,10 +81,7 @@ pub async fn get_session(
         .await?
         .ok_or_else(|| AppError::NotFound("session not found".into()))?;
 
-    // Verify session belongs to this KB and user
-    if session.kb_id != kb_access.kb.id || session.user_id != kb_access.user.id {
-        return Err(AppError::NotFound("session not found".into()));
-    }
+    verify_session_access(&session, &kb_access)?;
 
     let messages = db::chat_sessions::get_messages(&state.db, sid).await?;
     Ok(Json(serde_json::json!({
@@ -92,9 +106,7 @@ pub async fn send_message(
     let session = db::chat_sessions::get_session(&state.db, sid)
         .await?
         .ok_or_else(|| AppError::NotFound("session not found".into()))?;
-    if session.kb_id != kb_access.kb.id || session.user_id != kb_access.user.id {
-        return Err(AppError::NotFound("session not found".into()));
-    }
+    verify_session_access(&session, &kb_access)?;
 
     if req.content.trim().is_empty() || req.content.len() > MAX_MESSAGE_LENGTH {
         return Err(AppError::BadRequest(
@@ -106,15 +118,7 @@ pub async fn send_message(
     crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
     // Update session title from first message if still default
-    if session.title == "New Chat" {
-        let title = if req.content.len() > 50 {
-            let end = req.content.char_indices().nth(50).map(|(i, _)| i).unwrap_or(req.content.len());
-            format!("{}...", &req.content[..end])
-        } else {
-            req.content.clone()
-        };
-        let _ = db::chat_sessions::update_title(&state.db, sid, &title).await;
-    }
+    update_title_if_default(&state.db, &session, &req.content).await;
 
     // Save user message
     let user_msg = db::chat_sessions::add_message(
@@ -151,9 +155,7 @@ pub async fn stream_message(
     let session = db::chat_sessions::get_session(&state.db, sid)
         .await?
         .ok_or_else(|| AppError::NotFound("session not found".into()))?;
-    if session.kb_id != kb_access.kb.id || session.user_id != kb_access.user.id {
-        return Err(AppError::NotFound("session not found".into()));
-    }
+    verify_session_access(&session, &kb_access)?;
 
     if req.content.trim().is_empty() || req.content.len() > MAX_MESSAGE_LENGTH {
         return Err(AppError::BadRequest(
@@ -166,15 +168,7 @@ pub async fn stream_message(
     ).await?;
 
     // Update session title from first message if still default
-    if session.title == "New Chat" {
-        let title = if req.content.len() > 50 {
-            let end = req.content.char_indices().nth(50).map(|(i, _)| i).unwrap_or(req.content.len());
-            format!("{}...", &req.content[..end])
-        } else {
-            req.content.clone()
-        };
-        let _ = db::chat_sessions::update_title(&state.db, sid, &title).await;
-    }
+    update_title_if_default(&state.db, &session, &req.content).await;
 
     // Save user message
     db::chat_sessions::add_message(

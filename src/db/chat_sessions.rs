@@ -50,6 +50,15 @@ pub async fn get_session(pool: &PgPool, id: Uuid) -> AppResult<Option<ChatSessio
     Ok(session)
 }
 
+pub async fn update_title(pool: &PgPool, id: Uuid, title: &str) -> AppResult<()> {
+    sqlx::query("UPDATE chat_sessions SET title = $1, updated_at = now() WHERE id = $2")
+        .bind(title)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn add_message(
     pool: &PgPool,
     session_id: Uuid,

@@ -105,6 +105,17 @@ pub async fn send_message(
     // Check limit before saving anything
     crate::middleware::plan_limits::check_query_limit(&state.db, kb_access.kb.id, kb_access.kb.owner_id).await?;
 
+    // Update session title from first message if still default
+    if session.title == "New Chat" {
+        let title = if req.content.len() > 50 {
+            let end = req.content.char_indices().nth(50).map(|(i, _)| i).unwrap_or(req.content.len());
+            format!("{}...", &req.content[..end])
+        } else {
+            req.content.clone()
+        };
+        let _ = db::chat_sessions::update_title(&state.db, sid, &title).await;
+    }
+
     // Save user message
     let user_msg = db::chat_sessions::add_message(
         &state.db,
@@ -153,6 +164,17 @@ pub async fn stream_message(
     crate::middleware::plan_limits::check_query_limit(
         &state.db, kb_access.kb.id, kb_access.kb.owner_id,
     ).await?;
+
+    // Update session title from first message if still default
+    if session.title == "New Chat" {
+        let title = if req.content.len() > 50 {
+            let end = req.content.char_indices().nth(50).map(|(i, _)| i).unwrap_or(req.content.len());
+            format!("{}...", &req.content[..end])
+        } else {
+            req.content.clone()
+        };
+        let _ = db::chat_sessions::update_title(&state.db, sid, &title).await;
+    }
 
     // Save user message
     db::chat_sessions::add_message(

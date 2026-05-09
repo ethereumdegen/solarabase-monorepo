@@ -1,6 +1,7 @@
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::auth::extractors::AdminUser;
 use crate::db;
@@ -114,6 +115,26 @@ pub async fn list_agent_logs(
     let jobs = db::chat_jobs::list(&state.db, limit, offset).await?;
     let total = db::chat_jobs::count(&state.db).await?;
     Ok(Json(serde_json::json!({ "jobs": jobs, "total": total, "limit": limit, "offset": offset })))
+}
+
+/// GET /api/admin/agent-logs/:id — single chat job with session messages
+pub async fn get_agent_log(
+    AdminUser(_user): AdminUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<serde_json::Value>> {
+    let job = db::chat_jobs::get(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("agent log not found".into()))?;
+    let messages = db::chat_sessions::get_messages(&state.db, job.session_id).await?;
+    let session = db::chat_sessions::get_session(&state.db, job.session_id).await?;
+    let owner = db::users::get_by_id(&state.db, job.owner_id).await?;
+    Ok(Json(serde_json::json!({
+        "job": job,
+        "session": session,
+        "messages": messages,
+        "owner": owner.map(|u| serde_json::json!({ "id": u.id, "name": u.name, "email": u.email })),
+    })))
 }
 
 /// GET /api/admin/llm-logs

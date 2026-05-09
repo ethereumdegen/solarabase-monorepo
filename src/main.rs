@@ -278,6 +278,10 @@ async fn main() {
             get(controllers::admin::list_agent_logs),
         )
         .route(
+            "/api/admin/agent-logs/{id}",
+            get(controllers::admin::get_agent_log),
+        )
+        .route(
             "/api/admin/llm-logs",
             get(controllers::admin::list_llm_logs),
         )

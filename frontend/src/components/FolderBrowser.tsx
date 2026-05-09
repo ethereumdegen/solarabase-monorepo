@@ -12,6 +12,7 @@ import {
   getDocumentPages,
 } from '../api';
 import { Upload } from './Upload';
+import BrailleSpinner from './ui/BrailleSpinner';
 import type { DocFolder, Document, BreadcrumbEntry, FolderContents } from '../types';
 import { FOLDER_CATEGORIES } from '../types';
 
@@ -670,7 +671,7 @@ export function FolderBrowser({ kbId }: { kbId: string }) {
   };
 
   if (loading && !contents) {
-    return <p className="text-white/30 text-center py-8">Loading...</p>;
+    return <div className="py-8"><BrailleSpinner animation="orbit" size="lg" label="Loading documents..." /></div>;
   }
 
   const folders = contents?.folders ?? [];

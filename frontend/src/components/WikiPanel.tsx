@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listWikiPages, getWikiPage } from '../api';
+import BrailleSpinner from './ui/BrailleSpinner';
 import type { WikiPage, WikiPageDetail } from '../types';
 
 export function WikiPanel({ kbId }: { kbId: string }) {
@@ -27,7 +28,7 @@ export function WikiPanel({ kbId }: { kbId: string }) {
     }
   };
 
-  if (loading) return <p className="text-white/30 text-center py-8">Loading wiki...</p>;
+  if (loading) return <div className="py-8"><BrailleSpinner animation="rain" size="lg" label="Loading wiki..." /></div>;
 
   if (selected) {
     return (

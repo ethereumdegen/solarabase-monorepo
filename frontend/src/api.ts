@@ -292,6 +292,13 @@ export const adminListUsers = () => fetchJson<{ users: User[]; total: number }>(
 export const adminListKbs = () => fetchJson<{ kbs: Knowledgebase[]; total: number }>('/api/admin/kbs');
 export const adminListAgentLogs = (limit = 50, offset = 0) =>
   fetchJson<{ jobs: AgentLog[]; total: number }>(`/api/admin/agent-logs?limit=${limit}&offset=${offset}`);
+export const adminGetAgentLog = (id: string) =>
+  fetchJson<{
+    job: AgentLog;
+    session: { id: string; kb_id: string; user_id: string; title: string; created_at: string; updated_at: string } | null;
+    messages: ChatMessage[];
+    owner: { id: string; name: string; email: string } | null;
+  }>(`/api/admin/agent-logs/${id}`);
 export const adminListLlmLogs = (limit = 50, offset = 0) =>
   fetchJson<{ logs: LlmLog[]; total: number; stats: LlmStats }>(`/api/admin/llm-logs?limit=${limit}&offset=${offset}`);
 

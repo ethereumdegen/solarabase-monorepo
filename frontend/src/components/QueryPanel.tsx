@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { listSessions, createSession, getSession, streamMessage } from '../api';
+import BrailleSpinner from './ui/BrailleSpinner';
 import type { ChatSession, ChatMessage } from '../types';
 import type { StreamEvent, StreamComplete } from '../api';
 
@@ -214,7 +215,9 @@ export function QueryPanel({ kbId }: { kbId: string }) {
 
           <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
             {loadingSessions && (
-              <p className="text-xs text-white/20 px-2 py-4">Loading...</p>
+              <div className="px-2 py-4">
+                <BrailleSpinner animation="pulse" size="sm" label="Loading chats..." />
+              </div>
             )}
             {!loadingSessions && sessions.length === 0 && (
               <p className="text-xs text-white/20 px-2 py-4 text-center">No chats yet</p>

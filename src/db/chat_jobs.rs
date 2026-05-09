@@ -85,6 +85,17 @@ pub async fn fail_stale(pool: &PgPool) -> AppResult<u64> {
     Ok(rows)
 }
 
+/// Get a single chat job by ID (admin).
+pub async fn get(pool: &PgPool, id: Uuid) -> AppResult<Option<ChatJob>> {
+    let job = sqlx::query_as::<_, ChatJob>(
+        "SELECT * FROM chat_jobs WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(job)
+}
+
 /// List recent chat jobs (admin).
 pub async fn list(pool: &PgPool, limit: i64, offset: i64) -> AppResult<Vec<ChatJob>> {
     let jobs = sqlx::query_as::<_, ChatJob>(

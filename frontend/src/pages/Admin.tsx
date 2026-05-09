@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { Layout } from '../components/Layout';
-import { adminListUsers, adminListKbs, adminListAgentLogs, adminListLlmLogs } from '../api';
-import type { User, Knowledgebase, AgentLog, LlmLog, LlmStats } from '../types';
+import BrailleSpinner from '../components/ui/BrailleSpinner';
+import { adminListUsers, adminListKbs, adminListAgentLogs, adminListLlmLogs, adminGetAgentLog } from '../api';
+import type { User, Knowledgebase, AgentLog, ChatMessage, LlmLog, LlmStats } from '../types';
 
 type Tab = 'users' | 'knowledgebases' | 'agent-logs' | 'llm-logs';
 
@@ -69,6 +71,177 @@ function Pagination({ total, limit, offset, onChange }: {
   );
 }
 
+/* ---------- Agent Log Detail View ---------- */
+function AgentLogDetail({
+  jobId,
+  kbs,
+  onBack,
+}: {
+  jobId: string;
+  kbs: Knowledgebase[];
+  onBack: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [job, setJob] = useState<AgentLog | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [session, setSession] = useState<{ id: string; title: string; created_at: string } | null>(null);
+  const [owner, setOwner] = useState<{ name: string; email: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    adminGetAgentLog(jobId)
+      .then((r) => {
+        setJob(r.job);
+        setMessages(r.messages);
+        setSession(r.session);
+        setOwner(r.owner);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [jobId]);
+
+  if (loading) {
+    return <div className="py-12"><BrailleSpinner animation="pulse" size="lg" label="Loading agent log..." /></div>;
+  }
+
+  if (error || !job) {
+    return (
+      <div className="space-y-4">
+        <button onClick={onBack} className="text-xs text-white/30 hover:text-white/50">&larr; Back to logs</button>
+        <p className="text-red-400">{error || 'Not found'}</p>
+      </div>
+    );
+  }
+
+  const kb = kbs.find((k) => k.id === job.kb_id);
+  const duration = job.completed_at && job.claimed_at
+    ? Math.round((new Date(job.completed_at).getTime() - new Date(job.claimed_at).getTime()) / 1000)
+    : null;
+
+  return (
+    <div className="space-y-6">
+      {/* Back button */}
+      <button onClick={onBack} className="text-xs text-white/30 hover:text-white/50 transition-colors">
+        &larr; Back to agent logs
+      </button>
+
+      {/* Header card */}
+      <div className="bg-[#111] border border-white/5 rounded-xl p-5">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold text-white/90 mb-1">Agent Job</h2>
+            <p className="text-xs text-white/20 font-mono">{job.id}</p>
+          </div>
+          <StatusBadge status={job.status} />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="text-[10px] uppercase text-white/20 mb-1">Knowledgebase</div>
+            <div className="text-white/60">{kb?.name || job.kb_id.slice(0, 8)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-white/20 mb-1">Owner</div>
+            <div className="text-white/60">{owner ? `${owner.name} (${owner.email})` : job.owner_id.slice(0, 8)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-white/20 mb-1">Worker</div>
+            <div className="text-white/60 font-mono text-xs">{job.worker_id || '-'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-white/20 mb-1">Duration</div>
+            <div className="text-white/60">{duration !== null ? `${duration}s` : '-'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-white/20 mb-1">Created</div>
+            <div className="text-white/60">{new Date(job.created_at).toLocaleString()}</div>
+          </div>
+          {job.claimed_at && (
+            <div>
+              <div className="text-[10px] uppercase text-white/20 mb-1">Claimed</div>
+              <div className="text-white/60">{new Date(job.claimed_at).toLocaleString()}</div>
+            </div>
+          )}
+          {job.completed_at && (
+            <div>
+              <div className="text-[10px] uppercase text-white/20 mb-1">Completed</div>
+              <div className="text-white/60">{new Date(job.completed_at).toLocaleString()}</div>
+            </div>
+          )}
+          {session && (
+            <div>
+              <div className="text-[10px] uppercase text-white/20 mb-1">Session</div>
+              <div className="text-white/60 truncate" title={session.title}>{session.title}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Query */}
+      <div className="bg-[#111] border border-white/5 rounded-xl p-5">
+        <h3 className="text-xs font-medium text-white/30 uppercase tracking-wider mb-3">Query</h3>
+        <p className="text-sm text-white/70 whitespace-pre-wrap">{job.content}</p>
+      </div>
+
+      {/* Error (if any) */}
+      {job.error && (
+        <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-5">
+          <h3 className="text-xs font-medium text-red-400/50 uppercase tracking-wider mb-3">Error</h3>
+          <pre className="text-xs text-red-400/70 whitespace-pre-wrap font-mono">{job.error}</pre>
+        </div>
+      )}
+
+      {/* Conversation */}
+      <div>
+        <h3 className="text-xs font-medium text-white/30 uppercase tracking-wider mb-3">
+          Conversation ({messages.length} messages)
+        </h3>
+        {messages.length === 0 ? (
+          <p className="text-white/20 text-sm py-4 text-center">No messages in this session</p>
+        ) : (
+          <div className="space-y-3">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`rounded-xl px-5 py-4 ${
+                msg.role === 'user'
+                  ? 'bg-white/10 ml-8'
+                  : 'bg-[#111] border border-white/5 mr-8'
+              }`}>
+                <p className="text-[10px] font-medium mb-2 text-white/25 uppercase">
+                  {msg.role}
+                </p>
+                {msg.role === 'user' ? (
+                  <div className="text-white/80 text-sm">{msg.content}</div>
+                ) : (
+                  <div className="prose prose-sm prose-invert max-w-none text-white/70">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                )}
+                {msg.metadata && msg.metadata.reasoning_path && msg.metadata.reasoning_path.length > 0 && (
+                  <details className="mt-3">
+                    <summary className="text-[10px] text-white/20 cursor-pointer hover:text-white/40">
+                      Reasoning ({msg.metadata.tools_used?.length || 0} tools)
+                    </summary>
+                    <div className="mt-2 bg-white/5 rounded-lg p-3 text-xs text-white/30 space-y-1">
+                      {msg.metadata.reasoning_path.map((step: string, j: number) => (
+                        <p key={j} className="font-mono">{j + 1}. {step}</p>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                <div className="text-[10px] text-white/15 mt-2">
+                  {new Date(msg.created_at).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Main Admin ---------- */
 export function Admin() {
   const [tab, setTab] = useState<Tab>('users');
   const [users, setUsers] = useState<User[]>([]);
@@ -78,6 +251,7 @@ export function Admin() {
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
   const [agentTotal, setAgentTotal] = useState(0);
   const [agentOffset, setAgentOffset] = useState(0);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [llmLogs, setLlmLogs] = useState<LlmLog[]>([]);
   const [llmTotal, setLlmTotal] = useState(0);
   const [llmOffset, setLlmOffset] = useState(0);
@@ -94,12 +268,12 @@ export function Admin() {
   }, []);
 
   useEffect(() => {
-    if (tab === 'agent-logs') {
+    if (tab === 'agent-logs' && !selectedAgentId) {
       adminListAgentLogs(50, agentOffset)
         .then((r) => { setAgentLogs(r.jobs); setAgentTotal(r.total); })
         .catch((e) => setError(e.message));
     }
-  }, [tab, agentOffset]);
+  }, [tab, agentOffset, selectedAgentId]);
 
   useEffect(() => {
     if (tab === 'llm-logs') {
@@ -120,7 +294,7 @@ export function Admin() {
           {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => { setTab(t); setSelectedAgentId(null); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 tab === t
                   ? 'bg-white/10 text-white'
@@ -214,7 +388,15 @@ export function Admin() {
           </div>
         )}
 
-        {tab === 'agent-logs' && (
+        {tab === 'agent-logs' && selectedAgentId && (
+          <AgentLogDetail
+            jobId={selectedAgentId}
+            kbs={kbs}
+            onBack={() => setSelectedAgentId(null)}
+          />
+        )}
+
+        {tab === 'agent-logs' && !selectedAgentId && (
           <>
             <div className="bg-[#111] border border-white/5 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
@@ -235,7 +417,11 @@ export function Admin() {
                       ? Math.round((new Date(job.completed_at).getTime() - new Date(job.claimed_at).getTime()) / 1000)
                       : null;
                     return (
-                      <tr key={job.id} className="border-b border-white/5 last:border-0 group">
+                      <tr
+                        key={job.id}
+                        onClick={() => setSelectedAgentId(job.id)}
+                        className="border-b border-white/5 last:border-0 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                      >
                         <td className="px-4 py-3">
                           <StatusBadge status={job.status} />
                         </td>

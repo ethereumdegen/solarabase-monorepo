@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getKbBilling, listDocuments, listKbMembers, listApiKeys } from '../api';
+import BrailleSpinner from './ui/BrailleSpinner';
 import type { BillingInfo } from '../types';
 
 const PLAN_QUERY_LIMITS: Record<string, number | null> = {
@@ -85,7 +86,7 @@ export function KbUsage({ kbId }: { kbId: string }) {
   }, [kbId]);
 
   if (loading) {
-    return <div className="text-white/30 text-center py-12">Loading usage...</div>;
+    return <div className="py-12"><BrailleSpinner animation="sparkle" size="lg" label="Loading usage..." /></div>;
   }
 
   const plan = billing?.subscription.plan || 'free';

@@ -281,7 +281,24 @@ async fn build_document_root_index(
     }
 }
 
+const MAX_PAGE_CHARS: usize = 3000;
+const MIN_PAGE_CHARS: usize = 500;
+
+/// Check if a line looks like a section heading (markdown # or ALL CAPS line).
+fn is_heading(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.starts_with('#') {
+        return true;
+    }
+    trimmed.len() > 3
+        && trimmed.len() < 100
+        && trimmed
+            .chars()
+            .all(|c| c.is_uppercase() || c.is_whitespace() || c.is_ascii_punctuation())
+}
+
 pub fn split_into_pages(text: &str) -> Vec<String> {
+    // 1. Form-feed split (real PDF page markers) — keep as primary
     let ff_pages: Vec<&str> = text.split('\x0C').collect();
     if ff_pages.len() > 1 {
         return ff_pages
@@ -291,12 +308,77 @@ pub fn split_into_pages(text: &str) -> Vec<String> {
             .collect();
     }
 
+    // 2. Heading-aware split: find section boundaries
+    let lines: Vec<&str> = text.lines().collect();
+    let mut section_starts: Vec<usize> = Vec::new();
+
+    for (i, line) in lines.iter().enumerate() {
+        if is_heading(line) {
+            section_starts.push(i);
+        }
+    }
+
+    if section_starts.len() > 1 {
+        // Build sections from heading boundaries
+        let mut sections: Vec<String> = Vec::new();
+        for (idx, &start) in section_starts.iter().enumerate() {
+            let end = section_starts.get(idx + 1).copied().unwrap_or(lines.len());
+            let section: String = lines[start..end].join("\n");
+            sections.push(section);
+        }
+
+        // Handle any content before the first heading
+        if section_starts[0] > 0 {
+            let preamble: String = lines[..section_starts[0]].join("\n");
+            if !preamble.trim().is_empty() {
+                sections.insert(0, preamble);
+            }
+        }
+
+        // Merge small sections with previous, sub-split large ones
+        let mut pages: Vec<String> = Vec::new();
+        for section in sections {
+            let trimmed = section.trim().to_string();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            if trimmed.len() < MIN_PAGE_CHARS {
+                // Merge with previous page if it exists and won't exceed max
+                if let Some(last) = pages.last_mut() {
+                    if last.len() + trimmed.len() < MAX_PAGE_CHARS {
+                        last.push_str("\n\n");
+                        last.push_str(&trimmed);
+                        continue;
+                    }
+                }
+            }
+
+            if trimmed.len() > MAX_PAGE_CHARS {
+                // Sub-split large sections at paragraph boundaries
+                let sub_pages = split_by_paragraphs(&trimmed);
+                pages.extend(sub_pages);
+            } else {
+                pages.push(trimmed);
+            }
+        }
+
+        if !pages.is_empty() {
+            return pages;
+        }
+    }
+
+    // 3. Fallback: paragraph-based splitting
+    split_by_paragraphs(text)
+}
+
+fn split_by_paragraphs(text: &str) -> Vec<String> {
     let paragraphs: Vec<&str> = text.split("\n\n").collect();
     let mut pages = Vec::new();
     let mut current_page = String::new();
 
     for para in paragraphs {
-        if current_page.len() + para.len() > 3000 && !current_page.is_empty() {
+        if current_page.len() + para.len() > MAX_PAGE_CHARS && !current_page.is_empty() {
             pages.push(current_page.trim().to_string());
             current_page = String::new();
         }
@@ -410,15 +492,7 @@ fn build_fallback_tree_index(content: &str, page_num: i32) -> serde_json::Value 
 
     let topics: Vec<serde_json::Value> = lines
         .iter()
-        .filter(|line| {
-            let trimmed = line.trim();
-            trimmed.starts_with('#')
-                || (trimmed.len() > 3
-                    && trimmed.len() < 80
-                    && trimmed
-                        .chars()
-                        .all(|c| c.is_uppercase() || c.is_whitespace() || c.is_ascii_punctuation()))
-        })
+        .filter(|line| is_heading(line))
         .map(|line| {
             json!({
                 "name": line.trim().trim_start_matches('#').trim(),

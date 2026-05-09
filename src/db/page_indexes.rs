@@ -149,6 +149,34 @@ pub struct FtsPageHit {
     pub snippet: String,
 }
 
+/// Get page-level tree indexes (no content) for a document, scoped to a KB.
+pub async fn get_tree_indexes_for_doc(
+    pool: &PgPool,
+    kb_id: Uuid,
+    document_id: Uuid,
+) -> AppResult<Vec<PageTreeSummary>> {
+    let rows = sqlx::query_as::<_, PageTreeSummary>(
+        r#"
+        SELECT pi.page_num, pi.tree_index
+        FROM page_indexes pi
+        JOIN documents d ON d.id = pi.document_id
+        WHERE pi.document_id = $1 AND d.kb_id = $2
+        ORDER BY pi.page_num
+        "#,
+    )
+    .bind(document_id)
+    .bind(kb_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+pub struct PageTreeSummary {
+    pub page_num: i32,
+    pub tree_index: serde_json::Value,
+}
+
 pub async fn get_page_scoped(
     pool: &PgPool,
     kb_id: Uuid,

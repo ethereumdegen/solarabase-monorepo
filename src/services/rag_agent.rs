@@ -1,8 +1,9 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use metalcraft::{
-    create_react_agent, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
+    create_react_agent_full, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
     Result as McResult, RunOutcome, Tool, ToolRegistry,
 };
 use rig::client::CompletionClient;
@@ -14,6 +15,7 @@ use uuid::Uuid;
 use crate::db;
 use crate::models::chat_session::{ChatMessage, ChatRole};
 use crate::models::knowledgebase::Knowledgebase;
+use crate::services::llm::LlmClient;
 
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 
@@ -217,6 +219,161 @@ impl Tool for SearchIndexTool {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Navigate Tree: LLM reasons over document tree structure (PageIndex pattern)
+// ---------------------------------------------------------------------------
+
+struct NavigateTreeTool {
+    db: PgPool,
+    kb_id: Uuid,
+    llm: Arc<LlmClient>,
+}
+
+const NAVIGATE_TREE_SYSTEM: &str = r#"You are a document navigation system. Given a query and a document's hierarchical tree structure (summaries only, no full text), identify which pages are most likely to contain the answer.
+
+Reason step by step through the tree structure. Consider topic names, summaries, key entities, and relationships.
+
+Reply in JSON format:
+{
+  "thinking": "<your reasoning about which sections are relevant and why>",
+  "page_list": [1, 3, 5]
+}
+
+Rules:
+- Output ONLY valid JSON, no markdown fences
+- Return pages in order of relevance (most relevant first)
+- Return at most 8 pages
+- If no pages seem relevant, return an empty page_list and explain in thinking"#;
+
+#[async_trait]
+impl Tool for NavigateTreeTool {
+    fn name(&self) -> &str {
+        "navigate_tree"
+    }
+    fn description(&self) -> &str {
+        "LLM-powered navigation of a document's tree structure. Reasons over page summaries, topics, and entities to find relevant sections — better than keyword search for complex or semantic queries. Requires a document_id."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The question or topic to find in the document"
+                },
+                "document_id": {
+                    "type": "string",
+                    "description": "The document UUID to navigate"
+                }
+            },
+            "required": ["query", "document_id"]
+        })
+    }
+    async fn call(&self, args: serde_json::Value) -> McResult<serde_json::Value> {
+        let query = args["query"].as_str().unwrap_or("");
+        let doc_id_str = args["document_id"]
+            .as_str()
+            .ok_or_else(|| GraphError::Node {
+                node: "navigate_tree".into(),
+                message: "document_id required".into(),
+            })?;
+        let doc_id = Uuid::parse_str(doc_id_str).map_err(|e| GraphError::Node {
+            node: "navigate_tree".into(),
+            message: format!("invalid document_id: {e}"),
+        })?;
+
+        // Fetch root index for document-level context
+        let root_idx = db::page_indexes::get_document_index(&self.db, doc_id)
+            .await
+            .map_err(|e| GraphError::Node {
+                node: "navigate_tree".into(),
+                message: e.to_string(),
+            })?;
+
+        // Fetch page-level tree indexes (summaries only, no content)
+        let page_trees = db::page_indexes::get_tree_indexes_for_doc(&self.db, self.kb_id, doc_id)
+            .await
+            .map_err(|e| GraphError::Node {
+                node: "navigate_tree".into(),
+                message: e.to_string(),
+            })?;
+
+        if page_trees.is_empty() {
+            return Ok(json!({
+                "error": "No indexed pages found for this document",
+                "document_id": doc_id_str
+            }));
+        }
+
+        // Build compact tree structure: summaries + topics only, no full text
+        let tree_nodes: Vec<serde_json::Value> = page_trees
+            .iter()
+            .map(|pt| {
+                let ti = &pt.tree_index;
+                json!({
+                    "page": pt.page_num,
+                    "summary": ti.get("summary").cloned().unwrap_or(json!("")),
+                    "key_entities": ti.get("key_entities").cloned().unwrap_or(json!([])),
+                    "topics": ti.get("topics").cloned().unwrap_or(json!([])),
+                })
+            })
+            .collect();
+
+        let root_summary = root_idx
+            .as_ref()
+            .and_then(|r| r.root_index.get("summary"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        let user_prompt = format!(
+            "Document summary: {root_summary}\n\nDocument tree structure:\n{}\n\nQuestion: {query}",
+            serde_json::to_string_pretty(&tree_nodes).unwrap_or_default()
+        );
+
+        let result = self
+            .llm
+            .complete_json(NAVIGATE_TREE_SYSTEM, &user_prompt)
+            .await
+            .map_err(|e| GraphError::Node {
+                node: "navigate_tree".into(),
+                message: format!("LLM navigation failed: {e}"),
+            })?;
+
+        // Extract the page list and return with summaries for context
+        let page_list: Vec<i32> = result
+            .get("page_list")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_i64().map(|n| n as i32)).collect())
+            .unwrap_or_default();
+
+        let thinking = result
+            .get("thinking")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        // Return matched pages with their summaries
+        let matched_pages: Vec<serde_json::Value> = page_list
+            .iter()
+            .filter_map(|&pn| {
+                page_trees.iter().find(|pt| pt.page_num == pn).map(|pt| {
+                    let ti = &pt.tree_index;
+                    json!({
+                        "page_num": pt.page_num,
+                        "summary": ti.get("summary").cloned().unwrap_or(json!("")),
+                    })
+                })
+            })
+            .collect();
+
+        Ok(json!({
+            "document_id": doc_id_str,
+            "thinking": thinking,
+            "matched_pages": matched_pages,
+            "page_count": matched_pages.len(),
+        }))
+    }
+}
+
 struct SearchPagesTool {
     db: PgPool,
     kb_id: Uuid,
@@ -275,6 +432,41 @@ impl Tool for SearchPagesTool {
 struct ReadPageTool {
     db: PgPool,
     kb_id: Uuid,
+    token_budget: Arc<TokenBudget>,
+}
+
+// ---------------------------------------------------------------------------
+// Token budget tracker (Win 2)
+// ---------------------------------------------------------------------------
+
+struct TokenBudget {
+    used: AtomicUsize,
+    max_tokens: usize,
+}
+
+impl TokenBudget {
+    fn new(max_tokens: usize) -> Self {
+        Self {
+            used: AtomicUsize::new(0),
+            max_tokens,
+        }
+    }
+
+    /// Estimate tokens (~4 chars per token) and add to budget. Returns (used, remaining).
+    fn consume(&self, text: &str) -> (usize, usize) {
+        let tokens = text.len() / 4;
+        let used = self.used.fetch_add(tokens, Ordering::Relaxed) + tokens;
+        let remaining = self.max_tokens.saturating_sub(used);
+        (used, remaining)
+    }
+
+    fn is_exhausted(&self) -> bool {
+        self.used.load(Ordering::Relaxed) >= self.max_tokens
+    }
+
+    fn reset(&self) {
+        self.used.store(0, Ordering::Relaxed);
+    }
 }
 
 #[async_trait]
@@ -323,12 +515,35 @@ impl Tool for ReadPageTool {
             })?;
 
         match page {
-            Some(p) => Ok(json!({
-                "document_id": doc_id.to_string(),
-                "page_num": p.page_num,
-                "content": p.content,
-                "tree_index": p.tree_index,
-            })),
+            Some(p) => {
+                if self.token_budget.is_exhausted() {
+                    return Ok(json!({
+                        "warning": "Token budget exhausted. Prioritize answering with content already retrieved.",
+                        "document_id": doc_id.to_string(),
+                        "page_num": p.page_num,
+                        "summary": p.tree_index.get("summary").cloned().unwrap_or(json!("")),
+                    }));
+                }
+
+                let (used, remaining) = self.token_budget.consume(&p.content);
+
+                let content = if remaining == 0 {
+                    // Budget exceeded mid-page — truncate
+                    let char_limit = self.token_budget.max_tokens.saturating_sub(used.saturating_sub(p.content.len() / 4)) * 4;
+                    let truncated: String = p.content.chars().take(char_limit).collect();
+                    format!("{truncated}\n\n[TRUNCATED — token budget reached]")
+                } else {
+                    p.content.clone()
+                };
+
+                Ok(json!({
+                    "document_id": doc_id.to_string(),
+                    "page_num": p.page_num,
+                    "content": content,
+                    "tree_index": p.tree_index,
+                    "token_budget": { "used": used, "remaining": remaining },
+                }))
+            }
             None => Ok(json!({
                 "error": format!("page {page_num} not found in document {doc_id}")
             })),
@@ -352,23 +567,26 @@ fn build_system_prompt(kb: &Knowledgebase) -> String {
     }
 
     prompt.push_str(
-        r#"You have two complementary search tools — use BOTH for best results:
+        r#"You have three complementary search tools:
 
 1. `search_index` — searches document metadata (entity index, page themes, keywords). Good for finding which sections/topics cover a subject.
 2. `search_pages` — full-text search on actual page content. Good for specific terms, acronyms, names, exact phrases, and anything the index may have missed.
+3. `navigate_tree` — LLM-powered reasoning over a document's tree structure. Best for complex or broad questions where keyword search might miss semantic connections. Requires a document_id (use `list_documents` or `search_index` first to identify the document).
 
 Retrieval process:
 1. Run `search_index` AND `search_pages` in parallel with keywords from the user's question.
 2. Review results from both — entity matches, page_map hits, and content snippets.
-3. Use `read_page` to get full content of the most relevant pages identified by either tool.
-4. Synthesize an answer from the retrieved content.
-5. If no matches, try synonyms, broader terms, or `list_documents` to browse available docs.
+3. For complex questions or when keyword results are insufficient, use `navigate_tree` with a specific document_id to let the LLM reason about which sections are relevant.
+4. Use `read_page` to get full content of the most relevant pages identified by any tool.
+5. Synthesize an answer from the retrieved content.
+6. If no matches, try synonyms, broader terms, or `list_documents` to browse available docs.
 
 Important:
 - Always cite sources: mention document filename and page number
 - If information spans multiple pages, read all relevant pages before answering
 - If no relevant content is found, say so honestly — do not guess
 - Prefer fewer, targeted tool calls over exhaustive scanning
+- `read_page` reports token budget usage — if budget is low, stop retrieving and answer with what you have
 
 Multi-turn conversations:
 - You may receive prior conversation history. The user's LATEST message is your primary task.
@@ -382,6 +600,7 @@ Multi-turn conversations:
 
 pub struct RagAgent {
     graph: Arc<CompiledGraph<AgentState>>,
+    token_budget: Arc<TokenBudget>,
 }
 
 impl RagAgent {
@@ -394,17 +613,25 @@ impl RagAgent {
         let model = client.completion_model(&kb.model);
 
         let kb_id = kb.id;
+        let llm = Arc::new(LlmClient::new_with_model(api_key, &kb.model));
+
+        // ~60% of 128k context for retrieved content, leaving room for
+        // system prompt, history, and response generation
+        let token_budget = Arc::new(TokenBudget::new(80_000));
+
         let registry = ToolRegistry::new()
             .register(ListDocumentsTool { db: db.clone(), kb_id })
             .register(SearchIndexTool { db: db.clone(), kb_id })
+            .register(NavigateTreeTool { db: db.clone(), kb_id, llm })
             .register(SearchPagesTool { db: db.clone(), kb_id })
-            .register(ReadPageTool { db, kb_id });
+            .register(ReadPageTool { db, kb_id, token_budget: token_budget.clone() });
 
         let system_prompt = build_system_prompt(kb);
-        let graph = create_react_agent(model, registry, &system_prompt)?;
+        let graph = create_react_agent_full(model, registry, &system_prompt, None, Some(0.0))?;
 
         Ok(Self {
             graph: Arc::new(graph),
+            token_budget,
         })
     }
 
@@ -415,6 +642,7 @@ impl RagAgent {
         question: &str,
         history: &[ChatMessage],
     ) -> Result<RagResponse, BoxErr> {
+        self.token_budget.reset();
         let executor = Executor::new_from_arc(self.graph.clone()).max_steps(15);
 
         let state = if history.is_empty() {
@@ -445,6 +673,7 @@ impl RagAgent {
     }
 
     pub async fn query(&self, question: &str) -> Result<RagResponse, BoxErr> {
+        self.token_budget.reset();
         let executor = Executor::new_from_arc(self.graph.clone()).max_steps(15);
         let state = AgentState::new(question);
         let thread_id = format!("query-{}", Uuid::new_v4());

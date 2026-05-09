@@ -37,11 +37,12 @@ export function QueryPanel({ kbId }: { kbId: string }) {
         if (cancelled) return;
         setMessages(msgs);
         const last = msgs[msgs.length - 1];
+        console.debug(`[poll] ${msgs.length} msgs, last=${last?.role}, loading=${loading}`);
         if (last && last.role !== 'user') {
           setLoading(false);
         }
-      } catch {
-        // Don't clear messages on transient errors — just let the next poll retry
+      } catch (err) {
+        console.warn('[poll] fetch failed, will retry:', err);
       }
     };
 
@@ -54,7 +55,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
     if (!loading || !activeSessionId) return;
     const interval = setInterval(() => {
       setPollTrigger((n) => n + 1);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [loading, activeSessionId]);
 

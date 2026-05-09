@@ -7,7 +7,7 @@ use tokio::time::sleep;
 
 use crate::db;
 use crate::models::document::DocStatus;
-use crate::services::{llm::LlmClient, s3};
+use crate::services::{llm::{LlmClient, LlmContext}, s3};
 use crate::state::AppState;
 
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
@@ -39,7 +39,7 @@ pub async fn run_indexer_loop(state: AppState) {
             }
         }
         tick += 1;
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_secs(15)).await;
     }
 }
 
@@ -57,7 +57,12 @@ async fn process_pending(state: &AppState) -> Result<usize, BoxErr> {
 
         db::documents::update_status(&state.db, doc.id, DocStatus::Processing, None).await?;
 
-        let llm = LlmClient::new_with_model(&state.config.openai_api_key, &state.config.openai_model);
+        let llm = LlmClient::new_with_model(&state.config.openai_api_key, &state.config.openai_model)
+            .with_logging(state.db.clone(), LlmContext {
+                kb_id: Some(doc.kb_id),
+                session_id: None,
+                request_type: "index_page".to_string(),
+            });
 
         match index_document(state, &llm, &doc).await {
             Ok(()) => {

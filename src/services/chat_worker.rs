@@ -8,7 +8,7 @@ use crate::db;
 use crate::models::chat_job::ChatJob;
 use crate::state::AppState;
 
-const POLL_INTERVAL: Duration = Duration::from_secs(2);
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
 const CONCURRENT_WORKERS: usize = 4;
 const JOB_TIMEOUT: Duration = Duration::from_secs(120); // 2 minutes max per job
 

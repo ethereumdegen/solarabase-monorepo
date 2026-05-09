@@ -18,7 +18,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   const [loading, setLoading] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showList, setShowList] = useState(true);
   const [activity, setActivity] = useState<AgentActivity | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -59,6 +59,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       setSessions((prev) => [session, ...prev]);
       setActiveSessionId(session.id);
       setMessages([]);
+      setShowList(false);
     } catch (e: any) {
       console.error('Failed to create session', e);
     }
@@ -71,6 +72,12 @@ export function QueryPanel({ kbId }: { kbId: string }) {
     setLoading(false);
     setActivity(null);
     setActiveSessionId(sessionId);
+    setShowList(false);
+  };
+
+  const handleBackToList = () => {
+    setShowList(true);
+    setActiveSessionId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,6 +94,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
         setSessions((prev) => [session, ...prev]);
         setActiveSessionId(session.id);
         sessionId = session.id;
+        setShowList(false);
       } catch {
         return;
       }
@@ -195,65 +203,68 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-14rem)]">
-      {/* Sidebar */}
+    <div className="flex h-[calc(100dvh-14rem)] lg:h-[calc(100vh-14rem)]">
+      {/* Session list — full width on mobile, fixed sidebar on desktop */}
       <div
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-0'
-        } transition-all duration-200 overflow-hidden flex-shrink-0`}
+        className={`w-full lg:w-64 flex-shrink-0 flex flex-col border-r border-white/5
+          ${showList ? 'flex' : 'hidden lg:flex'}`}
       >
-        <div className="w-64 h-full flex flex-col border-r border-white/5">
-          <button
-            onClick={handleNewChat}
-            className="mx-3 mt-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-colors cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            New Chat
-          </button>
+        <button
+          onClick={handleNewChat}
+          className="mx-3 mt-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-colors cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+          New Chat
+        </button>
 
-          <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
-            {loadingSessions && (
-              <div className="px-2 py-4">
-                <BrailleSpinner animation="pulse" size="sm" label="Loading chats..." />
-              </div>
-            )}
-            {!loadingSessions && sessions.length === 0 && (
-              <p className="text-xs text-white/20 px-2 py-4 text-center">No chats yet</p>
-            )}
-            {sessions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => handleSelectSession(s.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer truncate ${
-                  activeSessionId === s.id
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-                }`}
-                title={s.title}
-              >
-                <div className="truncate">{s.title}</div>
-                <div className="text-[10px] text-white/20 mt-0.5">{formatDate(s.updated_at)}</div>
-              </button>
-            ))}
-          </div>
+        <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
+          {loadingSessions && (
+            <div className="px-2 py-4">
+              <BrailleSpinner animation="pulse" size="sm" label="Loading chats..." />
+            </div>
+          )}
+          {!loadingSessions && sessions.length === 0 && (
+            <p className="text-xs text-white/20 px-2 py-4 text-center">No chats yet</p>
+          )}
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => handleSelectSession(s.id)}
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer truncate ${
+                activeSessionId === s.id
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+              }`}
+              title={s.title}
+            >
+              <div className="truncate">{s.title}</div>
+              <div className="text-[10px] text-white/20 mt-0.5">{formatDate(s.updated_at)}</div>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Toggle sidebar button */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="flex-shrink-0 self-start mt-3 px-1.5 py-1.5 text-white/20 hover:text-white/50 transition-colors cursor-pointer"
-        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-        </svg>
-      </button>
+      {/* Chat area — full width on mobile, flex on desktop */}
+      <div className={`flex-1 flex flex-col min-w-0 ${showList ? 'hidden lg:flex' : 'flex'}`}>
+        {/* Mobile back button */}
+        <div className="lg:hidden flex items-center gap-2 px-4 pt-3 pb-2 border-b border-white/5">
+          <button
+            onClick={handleBackToList}
+            className="p-1 -ml-1 rounded text-white/30 hover:text-white/60 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <span className="text-sm text-white/40 truncate">
+            {activeSessionId
+              ? sessions.find((s) => s.id === activeSessionId)?.title || 'Chat'
+              : 'New Chat'}
+          </span>
+        </div>
 
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
         <div
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto space-y-4 pb-4 px-4"
@@ -275,7 +286,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
           {messages.map((msg) => (
             <div key={msg.id}>
               <div
-                className={`rounded-xl px-5 py-4 max-w-3xl ${
+                className={`rounded-xl px-4 py-3 sm:px-5 sm:py-4 max-w-3xl ${
                   msg.role === 'user'
                     ? 'bg-white/10 text-white ml-auto'
                     : 'bg-[#111] border border-white/5'
@@ -327,7 +338,7 @@ export function QueryPanel({ kbId }: { kbId: string }) {
             </div>
           ))}
           {loading && activity && (
-            <div className="bg-[#111] border border-white/5 rounded-xl px-5 py-4 max-w-3xl">
+            <div className="bg-[#111] border border-white/5 rounded-xl px-4 py-3 sm:px-5 sm:py-4 max-w-3xl">
               <p className="text-xs font-medium mb-2 text-white/30">Agent</p>
               <p className="text-white/30 animate-pulse text-sm">{activity.status}</p>
               {activity.tools.length > 0 && (
@@ -349,19 +360,19 @@ export function QueryPanel({ kbId }: { kbId: string }) {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="flex gap-3 pt-4 px-4 border-t border-white/5">
+        <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 px-3 sm:px-4 pb-1 border-t border-white/5">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question..."
             disabled={loading}
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none focus:ring-1 focus:ring-white/20 transition-all disabled:opacity-50"
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 sm:px-4 py-2.5 sm:py-3 text-sm text-white placeholder:text-white/25 outline-none focus:ring-1 focus:ring-white/20 transition-all disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="bg-white/10 hover:bg-white/15 disabled:bg-white/5 disabled:text-white/20 text-white px-6 py-3 rounded-lg text-sm font-medium transition-colors"
+            className="bg-white/10 hover:bg-white/15 disabled:bg-white/5 disabled:text-white/20 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm font-medium transition-colors"
           >
             Send
           </button>

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use metalcraft::{
-    create_react_agent_full, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
+    create_react_agent, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
     Result as McResult, RunOutcome, Tool, ToolRegistry,
 };
 use rig::client::CompletionClient;
@@ -627,7 +627,7 @@ impl RagAgent {
             .register(ReadPageTool { db, kb_id, token_budget: token_budget.clone() });
 
         let system_prompt = build_system_prompt(kb);
-        let graph = create_react_agent_full(model, registry, &system_prompt, None, Some(0.0))?;
+        let graph = create_react_agent(model, registry, &system_prompt)?;
 
         Ok(Self {
             graph: Arc::new(graph),

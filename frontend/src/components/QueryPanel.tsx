@@ -23,39 +23,40 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       .finally(() => setLoadingSessions(false));
   }, [kbId]);
 
-  // Load messages when session changes; poll if agent response is pending
+  // Load messages when session changes; poll while loading for agent response
   useEffect(() => {
     if (!activeSessionId) {
       setMessages([]);
       return;
     }
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
     const fetchMessages = async () => {
       try {
         const { messages: msgs } = await getSession(kbId, activeSessionId);
         if (cancelled) return;
         setMessages(msgs);
-        // If last message is from user, agent is still working — poll
         const last = msgs[msgs.length - 1];
-        if (last && last.role === 'user') {
-          setLoading(true);
-          pollTimer = setTimeout(fetchMessages, 3000);
-        } else {
+        if (last && last.role !== 'user') {
           setLoading(false);
         }
       } catch {
-        if (!cancelled) setMessages([]);
+        // Don't clear messages on transient errors — just let the next poll retry
       }
     };
 
     fetchMessages();
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
-    };
+    return () => { cancelled = true; };
   }, [kbId, activeSessionId, pollTrigger]);
+
+  // Separate polling interval while loading — survives React re-renders
+  useEffect(() => {
+    if (!loading || !activeSessionId) return;
+    const interval = setInterval(() => {
+      setPollTrigger((n) => n + 1);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [loading, activeSessionId]);
 
 
 

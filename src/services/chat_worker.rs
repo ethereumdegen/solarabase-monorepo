@@ -10,6 +10,7 @@ use crate::state::AppState;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const CONCURRENT_WORKERS: usize = 4;
+const JOB_TIMEOUT: Duration = Duration::from_secs(120); // 2 minutes max per job
 
 /// Spawn the fixed-size worker pool. Call once at startup.
 pub fn spawn_workers(state: AppState) {
@@ -32,8 +33,14 @@ pub fn spawn_workers(state: AppState) {
                     let state = state.clone();
                     let wid = worker_id.clone();
                     tokio::spawn(async move {
-                        process_job(&state, &wid, &job).await;
-                        drop(permit); // release slot
+                        let _permit = permit; // dropped when task completes or times out
+                        match tokio::time::timeout(JOB_TIMEOUT, process_job(&state, &wid, &job)).await {
+                            Ok(()) => {}
+                            Err(_) => {
+                                tracing::error!(job_id = %job.id, "chat job timed out after {}s", JOB_TIMEOUT.as_secs());
+                                let _ = db::chat_jobs::fail(&state.db, job.id, &wid, "job timed out").await;
+                            }
+                        }
                     });
                 }
                 Ok(None) => {

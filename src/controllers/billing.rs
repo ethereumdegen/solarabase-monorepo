@@ -39,6 +39,16 @@ pub async fn create_kb_checkout(
         return Err(AppError::Forbidden("admin required to manage billing".into()));
     }
 
+    // Guard: don't create duplicate checkout if KB already has paid subscription
+    let existing = db::subscriptions::get_for_kb(&state.db, kb_access.kb.id).await?;
+    if let Some(ref sub) = existing {
+        if sub.plan != crate::models::subscription::PlanTier::Free && sub.status == crate::models::subscription::SubscriptionStatus::Active {
+            return Err(AppError::BadRequest(
+                "This KB already has an active paid subscription. Use the billing portal to manage it.".into(),
+            ));
+        }
+    }
+
     let stripe = state.config.stripe.as_ref()
         .ok_or_else(|| AppError::BadRequest("Stripe billing not configured".into()))?;
 

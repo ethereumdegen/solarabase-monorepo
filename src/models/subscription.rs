@@ -11,7 +11,7 @@ pub enum PlanTier {
     Team,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq, Eq)]
 #[sqlx(type_name = "subscription_status", rename_all = "snake_case")]
 pub enum SubscriptionStatus {
     Active,

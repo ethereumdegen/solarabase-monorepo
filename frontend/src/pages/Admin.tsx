@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Layout } from '../components/Layout';
 import BrailleSpinner from '../components/ui/BrailleSpinner';
-import { adminListUsers, adminListKbs, adminListAgentLogs, adminListLlmLogs, adminGetAgentLog } from '../api';
-import type { User, Knowledgebase, AgentLog, ChatMessage, LlmLog, LlmStats } from '../types';
+import { adminListUsers, adminListKbs, adminListAgentLogs, adminListLlmLogs, adminGetAgentLog, adminListSubscriptions, adminListWebhookEvents } from '../api';
+import type { User, Knowledgebase, AgentLog, ChatMessage, LlmLog, LlmStats, AdminSubscription, SubscriptionStats, WebhookEvent } from '../types';
 
-type Tab = 'users' | 'knowledgebases' | 'agent-logs' | 'llm-logs';
+type Tab = 'users' | 'knowledgebases' | 'subscriptions' | 'webhook-events' | 'agent-logs' | 'llm-logs';
 
 const TAB_LABELS: Record<Tab, string> = {
   users: 'Users',
   knowledgebases: 'Knowledgebases',
+  subscriptions: 'Subscriptions',
+  'webhook-events': 'Webhooks',
   'agent-logs': 'Agent Logs',
   'llm-logs': 'LLM Logs',
 };
@@ -256,6 +258,13 @@ export function Admin() {
   const [llmTotal, setLlmTotal] = useState(0);
   const [llmOffset, setLlmOffset] = useState(0);
   const [llmStats, setLlmStats] = useState<LlmStats | null>(null);
+  const [subs, setSubs] = useState<AdminSubscription[]>([]);
+  const [subsTotal, setSubsTotal] = useState(0);
+  const [subsOffset, setSubsOffset] = useState(0);
+  const [subsStats, setSubsStats] = useState<SubscriptionStats | null>(null);
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([]);
+  const [webhookTotal, setWebhookTotal] = useState(0);
+  const [webhookOffset, setWebhookOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -283,6 +292,22 @@ export function Admin() {
     }
   }, [tab, llmOffset]);
 
+  useEffect(() => {
+    if (tab === 'subscriptions') {
+      adminListSubscriptions(50, subsOffset)
+        .then((r) => { setSubs(r.subscriptions); setSubsTotal(r.total); setSubsStats(r.stats); })
+        .catch((e) => setError(e.message));
+    }
+  }, [tab, subsOffset]);
+
+  useEffect(() => {
+    if (tab === 'webhook-events') {
+      adminListWebhookEvents(50, webhookOffset)
+        .then((r) => { setWebhookEvents(r.events); setWebhookTotal(r.total); })
+        .catch((e) => setError(e.message));
+    }
+  }, [tab, webhookOffset]);
+
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
@@ -305,6 +330,8 @@ export function Admin() {
               <span className="ml-1.5 text-xs opacity-50">
                 {t === 'users' && usersTotal}
                 {t === 'knowledgebases' && kbsTotal}
+                {t === 'subscriptions' && subsTotal}
+                {t === 'webhook-events' && webhookTotal}
                 {t === 'agent-logs' && agentTotal}
                 {t === 'llm-logs' && llmTotal}
               </span>
@@ -386,6 +413,96 @@ export function Admin() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {tab === 'subscriptions' && (
+          <>
+            {/* Stats cards */}
+            {subsStats && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                {[
+                  { label: 'Total', value: subsStats.total },
+                  { label: 'Free', value: subsStats.by_plan.free, color: 'text-white/50' },
+                  { label: 'Pro', value: subsStats.by_plan.pro, color: 'text-blue-400' },
+                  { label: 'Team', value: subsStats.by_plan.team, color: 'text-purple-400' },
+                  { label: 'Active', value: subsStats.by_status.active, color: 'text-green-400' },
+                  { label: 'Past Due', value: subsStats.by_status.past_due, color: 'text-amber-400' },
+                  { label: 'Canceled', value: subsStats.by_status.canceled, color: 'text-red-400' },
+                ].map((s) => (
+                  <div key={s.label} className="bg-[#111] border border-white/5 rounded-xl px-4 py-3">
+                    <div className="text-white/30 text-xs mb-1">{s.label}</div>
+                    <div className={`text-lg font-medium ${s.color || 'text-white/80'}`}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-[#111] border border-white/5 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5 text-white/30 text-left">
+                    <th className="px-4 py-3 font-medium">Plan</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">KB</th>
+                    <th className="px-4 py-3 font-medium">Owner</th>
+                    <th className="px-4 py-3 font-medium">Stripe Customer</th>
+                    <th className="px-4 py-3 font-medium">Period End</th>
+                    <th className="px-4 py-3 font-medium">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subs.map((sub) => {
+                    const kb = kbs.find((k) => k.id === sub.kb_id);
+                    const owner = users.find((u) => u.id === sub.user_id);
+                    return (
+                      <tr key={sub.id} className="border-b border-white/5 last:border-0">
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                            sub.plan === 'pro' ? 'bg-blue-500/15 text-blue-400' :
+                            sub.plan === 'team' ? 'bg-purple-500/15 text-purple-400' :
+                            'bg-white/5 text-white/30'
+                          }`}>
+                            {sub.plan}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={sub.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <a href={`/kb/${sub.kb_id}`} className="text-white/60 hover:text-white/80 transition-colors text-xs">
+                            {kb?.name || sub.kb_id.slice(0, 8)}
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-white/40 text-xs">
+                          {owner?.email || sub.user_id.slice(0, 8)}
+                        </td>
+                        <td className="px-4 py-3 text-white/20 font-mono text-xs">
+                          {sub.stripe_customer_id ? sub.stripe_customer_id.slice(0, 18) + '...' : '-'}
+                        </td>
+                        <td className="px-4 py-3 text-white/30 text-xs">
+                          {sub.current_period_end
+                            ? new Date(sub.current_period_end).toLocaleDateString()
+                            : '-'
+                          }
+                        </td>
+                        <td className="px-4 py-3">
+                          <TimeAgo date={sub.updated_at} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {subs.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-white/20">
+                        No subscriptions yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Pagination total={subsTotal} limit={50} offset={subsOffset} onChange={setSubsOffset} />
+          </>
         )}
 
         {tab === 'agent-logs' && selectedAgentId && (
@@ -548,6 +665,57 @@ export function Admin() {
               </table>
             </div>
             <Pagination total={llmTotal} limit={50} offset={llmOffset} onChange={setLlmOffset} />
+          </>
+        )}
+
+        {tab === 'webhook-events' && (
+          <>
+            <div className="bg-[#111] border border-white/5 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5 text-white/30 text-left">
+                    <th className="px-4 py-3 font-medium">Event Type</th>
+                    <th className="px-4 py-3 font-medium">Event ID</th>
+                    <th className="px-4 py-3 font-medium">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {webhookEvents.map((evt) => {
+                    const eventType = evt.action.replace('stripe_webhook:', '');
+                    const eventId = evt.detail?.event_id || '-';
+                    return (
+                      <tr key={evt.id} className="border-b border-white/5 last:border-0">
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium font-mono ${
+                            eventType.includes('completed') ? 'bg-green-500/15 text-green-400' :
+                            eventType.includes('failed') ? 'bg-red-500/15 text-red-400' :
+                            eventType.includes('deleted') ? 'bg-red-500/15 text-red-400' :
+                            eventType.includes('updated') ? 'bg-blue-500/15 text-blue-400' :
+                            'bg-white/5 text-white/40'
+                          }`}>
+                            {eventType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-white/20 font-mono text-xs">
+                          {eventId.length > 30 ? eventId.slice(0, 30) + '...' : eventId}
+                        </td>
+                        <td className="px-4 py-3">
+                          <TimeAgo date={evt.created_at} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {webhookEvents.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-white/20">
+                        No webhook events recorded yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Pagination total={webhookTotal} limit={50} offset={webhookOffset} onChange={setWebhookOffset} />
           </>
         )}
       </div>

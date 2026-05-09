@@ -69,12 +69,106 @@ pub async fn update_from_stripe(
 
 pub async fn cancel(pool: &PgPool, stripe_subscription_id: &str) -> AppResult<()> {
     sqlx::query(
-        "UPDATE subscriptions SET status = 'canceled', updated_at = now() WHERE stripe_subscription_id = $1",
+        "UPDATE subscriptions SET status = 'canceled', plan = 'free', stripe_subscription_id = NULL, updated_at = now() WHERE stripe_subscription_id = $1",
     )
     .bind(stripe_subscription_id)
     .execute(pool)
     .await?;
     Ok(())
+}
+
+pub async fn sync_from_stripe(
+    pool: &PgPool,
+    stripe_subscription_id: &str,
+    plan: Option<PlanTier>,
+    status: &str,
+    current_period_end: Option<chrono::DateTime<chrono::Utc>>,
+) -> AppResult<()> {
+    if let Some(plan) = plan {
+        sqlx::query(
+            r#"
+            UPDATE subscriptions
+            SET plan = $2, status = $3, current_period_end = $4, updated_at = now()
+            WHERE stripe_subscription_id = $1
+            "#,
+        )
+        .bind(stripe_subscription_id)
+        .bind(plan)
+        .bind(status)
+        .bind(current_period_end)
+        .execute(pool)
+        .await?;
+    } else {
+        sqlx::query(
+            r#"
+            UPDATE subscriptions
+            SET status = $2, current_period_end = $3, updated_at = now()
+            WHERE stripe_subscription_id = $1
+            "#,
+        )
+        .bind(stripe_subscription_id)
+        .bind(status)
+        .bind(current_period_end)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+pub async fn set_status(pool: &PgPool, stripe_subscription_id: &str, status: &str) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE subscriptions SET status = $2, updated_at = now() WHERE stripe_subscription_id = $1",
+    )
+    .bind(stripe_subscription_id)
+    .bind(status)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn list_all(
+    pool: &PgPool,
+    limit: i64,
+    offset: i64,
+) -> AppResult<Vec<Subscription>> {
+    let subs = sqlx::query_as::<_, Subscription>(
+        "SELECT * FROM subscriptions ORDER BY updated_at DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(subs)
+}
+
+pub async fn count_all(pool: &PgPool) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}
+
+pub async fn get_stats(pool: &PgPool) -> AppResult<serde_json::Value> {
+    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions")
+        .fetch_one(pool).await?;
+    let free: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE plan = 'free'")
+        .fetch_one(pool).await?;
+    let pro: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE plan = 'pro'")
+        .fetch_one(pool).await?;
+    let team: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE plan = 'team'")
+        .fetch_one(pool).await?;
+    let active: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE status = 'active'")
+        .fetch_one(pool).await?;
+    let past_due: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE status = 'past_due'")
+        .fetch_one(pool).await?;
+    let canceled: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM subscriptions WHERE status = 'canceled'")
+        .fetch_one(pool).await?;
+
+    Ok(serde_json::json!({
+        "total": total.0,
+        "by_plan": { "free": free.0, "pro": pro.0, "team": team.0 },
+        "by_status": { "active": active.0, "past_due": past_due.0, "canceled": canceled.0 },
+    }))
 }
 
 pub async fn get_plan_for_kb(pool: &PgPool, kb_id: Uuid, owner_id: Uuid) -> AppResult<PlanTier> {

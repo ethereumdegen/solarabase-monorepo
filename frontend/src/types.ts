@@ -211,3 +211,33 @@ export type Invitation = {
   expires_at: string;
   created_at: string;
 };
+
+export type AdminSubscription = {
+  id: string;
+  user_id: string;
+  kb_id: string;
+  plan: PlanTier;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: string;
+  current_period_end: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SubscriptionStats = {
+  total: number;
+  by_plan: { free: number; pro: number; team: number };
+  by_status: { active: number; past_due: number; canceled: number };
+};
+
+export type WebhookEvent = {
+  id: string;
+  user_id: string | null;
+  action: string;
+  resource: string;
+  resource_id: string | null;
+  detail: { event_id?: string; type?: string } | null;
+  ip_address: string | null;
+  created_at: string;
+};

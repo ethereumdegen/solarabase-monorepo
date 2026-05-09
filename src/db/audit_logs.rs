@@ -52,3 +52,30 @@ pub async fn count(pool: &PgPool) -> AppResult<i64> {
         .await?;
     Ok(row.0)
 }
+
+pub async fn list_by_action_prefix(
+    pool: &PgPool,
+    prefix: &str,
+    limit: i64,
+    offset: i64,
+) -> AppResult<Vec<AuditLog>> {
+    let logs = sqlx::query_as::<_, AuditLog>(
+        "SELECT * FROM audit_logs WHERE action LIKE $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(format!("{prefix}%"))
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(logs)
+}
+
+pub async fn count_by_action_prefix(pool: &PgPool, prefix: &str) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM audit_logs WHERE action LIKE $1",
+    )
+    .bind(format!("{prefix}%"))
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
+}

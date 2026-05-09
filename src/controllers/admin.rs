@@ -137,6 +137,34 @@ pub async fn get_agent_log(
     })))
 }
 
+/// GET /api/admin/subscriptions
+pub async fn list_subscriptions(
+    AdminUser(_user): AdminUser,
+    State(state): State<AppState>,
+    Query(params): Query<PaginationParams>,
+) -> AppResult<Json<serde_json::Value>> {
+    let limit = params.limit();
+    let offset = params.offset();
+    let subs = db::subscriptions::list_all(&state.db, limit, offset).await?;
+    let total = db::subscriptions::count_all(&state.db).await?;
+    let stats = db::subscriptions::get_stats(&state.db).await?;
+    Ok(Json(serde_json::json!({ "subscriptions": subs, "total": total, "stats": stats, "limit": limit, "offset": offset })))
+}
+
+/// GET /api/admin/webhook-events
+pub async fn list_webhook_events(
+    AdminUser(_user): AdminUser,
+    State(state): State<AppState>,
+    Query(params): Query<PaginationParams>,
+) -> AppResult<Json<serde_json::Value>> {
+    let limit = params.limit();
+    let offset = params.offset();
+    // Filter audit logs for stripe webhook events
+    let logs = db::audit_logs::list_by_action_prefix(&state.db, "stripe_webhook:", limit, offset).await?;
+    let total = db::audit_logs::count_by_action_prefix(&state.db, "stripe_webhook:").await?;
+    Ok(Json(serde_json::json!({ "events": logs, "total": total, "limit": limit, "offset": offset })))
+}
+
 /// GET /api/admin/llm-logs
 pub async fn list_llm_logs(
     AdminUser(_user): AdminUser,

@@ -17,6 +17,9 @@ import type {
   AgentLog,
   LlmLog,
   LlmStats,
+  AdminSubscription,
+  SubscriptionStats,
+  WebhookEvent,
 } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -301,6 +304,10 @@ export const adminGetAgentLog = (id: string) =>
   }>(`/api/admin/agent-logs/${id}`);
 export const adminListLlmLogs = (limit = 50, offset = 0) =>
   fetchJson<{ logs: LlmLog[]; total: number; stats: LlmStats }>(`/api/admin/llm-logs?limit=${limit}&offset=${offset}`);
+export const adminListSubscriptions = (limit = 50, offset = 0) =>
+  fetchJson<{ subscriptions: AdminSubscription[]; total: number; stats: SubscriptionStats }>(`/api/admin/subscriptions?limit=${limit}&offset=${offset}`);
+export const adminListWebhookEvents = (limit = 50, offset = 0) =>
+  fetchJson<{ events: WebhookEvent[]; total: number }>(`/api/admin/webhook-events?limit=${limit}&offset=${offset}`);
 
 // Invitations
 export const acceptInvite = (token: string) =>

@@ -283,6 +283,14 @@ async fn main() {
             get(controllers::admin::get_agent_log),
         )
         .route(
+            "/api/admin/subscriptions",
+            get(controllers::admin::list_subscriptions),
+        )
+        .route(
+            "/api/admin/webhook-events",
+            get(controllers::admin::list_webhook_events),
+        )
+        .route(
             "/api/admin/llm-logs",
             get(controllers::admin::list_llm_logs),
         )

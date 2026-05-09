@@ -85,6 +85,25 @@ pub async fn fail_stale(pool: &PgPool) -> AppResult<u64> {
     Ok(rows)
 }
 
+/// List recent chat jobs (admin).
+pub async fn list(pool: &PgPool, limit: i64, offset: i64) -> AppResult<Vec<ChatJob>> {
+    let jobs = sqlx::query_as::<_, ChatJob>(
+        "SELECT * FROM chat_jobs ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    Ok(jobs)
+}
+
+pub async fn count(pool: &PgPool) -> AppResult<i64> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM chat_jobs")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}
+
 /// Fail stale ready jobs (>10 min without being picked up).
 pub async fn fail_stale_ready(pool: &PgPool) -> AppResult<u64> {
     let rows = sqlx::query(

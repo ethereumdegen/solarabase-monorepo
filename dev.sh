@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+set -m  # enable job control for process groups
 
 # Colors
 RED='\033[0;31m'
@@ -7,10 +8,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Kill any leftover process on port 3000
+EXISTING_PID=$(lsof -ti :3000 2>/dev/null || true)
+if [ -n "$EXISTING_PID" ]; then
+    echo -e "${YELLOW}Killing existing process on port 3000 (PID: $EXISTING_PID)...${NC}"
+    kill $EXISTING_PID 2>/dev/null || true
+    sleep 1
+    # Force kill if still alive
+    kill -9 $EXISTING_PID 2>/dev/null || true
+fi
+
 cleanup() {
     echo -e "\n${YELLOW}Shutting down...${NC}"
-    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
-    wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    # Kill entire process groups (catches cargo/npm children, not just sed)
+    kill -- -$BACKEND_PID -$FRONTEND_PID 2>/dev/null || true
+    wait $BACKEND_PID $FRONTEND_PID 2>/dev/null || true
     echo -e "${GREEN}Done.${NC}"
 }
 trap cleanup EXIT INT TERM

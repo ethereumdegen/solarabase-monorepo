@@ -102,3 +102,30 @@ pub async fn list_audit_logs(
     let total = db::audit_logs::count(&state.db).await?;
     Ok(Json(serde_json::json!({ "logs": logs, "total": total, "limit": limit, "offset": offset })))
 }
+
+/// GET /api/admin/agent-logs — chat jobs with metadata
+pub async fn list_agent_logs(
+    AdminUser(_user): AdminUser,
+    State(state): State<AppState>,
+    Query(params): Query<PaginationParams>,
+) -> AppResult<Json<serde_json::Value>> {
+    let limit = params.limit();
+    let offset = params.offset();
+    let jobs = db::chat_jobs::list(&state.db, limit, offset).await?;
+    let total = db::chat_jobs::count(&state.db).await?;
+    Ok(Json(serde_json::json!({ "jobs": jobs, "total": total, "limit": limit, "offset": offset })))
+}
+
+/// GET /api/admin/llm-logs
+pub async fn list_llm_logs(
+    AdminUser(_user): AdminUser,
+    State(state): State<AppState>,
+    Query(params): Query<PaginationParams>,
+) -> AppResult<Json<serde_json::Value>> {
+    let limit = params.limit();
+    let offset = params.offset();
+    let logs = db::llm_logs::list(&state.db, limit, offset).await?;
+    let total = db::llm_logs::count(&state.db).await?;
+    let stats = db::llm_logs::stats(&state.db).await?;
+    Ok(Json(serde_json::json!({ "logs": logs, "total": total, "stats": stats, "limit": limit, "offset": offset })))
+}

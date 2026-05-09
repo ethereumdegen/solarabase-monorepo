@@ -1,7 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { listSessions, createSession, getSession, sendSessionMessage } from '../api';
+import { listSessions, createSession, getSession, streamMessage } from '../api';
 import type { ChatSession, ChatMessage } from '../types';
+import type { StreamEvent, StreamComplete } from '../api';
+
+interface AgentActivity {
+  status: string;
+  tools: { name: string; done: boolean; duration_ms?: number; is_error?: boolean }[];
+}
 
 export function QueryPanel({ kbId }: { kbId: string }) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -12,8 +18,9 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pollTrigger, setPollTrigger] = useState(0);
+  const [activity, setActivity] = useState<AgentActivity | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load sessions on mount
   useEffect(() => {
@@ -23,43 +30,21 @@ export function QueryPanel({ kbId }: { kbId: string }) {
       .finally(() => setLoadingSessions(false));
   }, [kbId]);
 
-  // Load messages when session changes; poll while loading for agent response
+  // Load messages when session changes
   useEffect(() => {
     if (!activeSessionId) {
       setMessages([]);
       return;
     }
-    let cancelled = false;
+    getSession(kbId, activeSessionId)
+      .then(({ messages: msgs }) => setMessages(msgs))
+      .catch(() => {});
+  }, [kbId, activeSessionId]);
 
-    const fetchMessages = async () => {
-      try {
-        const { messages: msgs } = await getSession(kbId, activeSessionId);
-        if (cancelled) return;
-        setMessages(msgs);
-        const last = msgs[msgs.length - 1];
-        console.debug(`[poll] ${msgs.length} msgs, last=${last?.role}, loading=${loading}`);
-        if (last && last.role !== 'user') {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.warn('[poll] fetch failed, will retry:', err);
-      }
-    };
-
-    fetchMessages();
-    return () => { cancelled = true; };
-  }, [kbId, activeSessionId, pollTrigger]);
-
-  // Separate polling interval while loading — survives React re-renders
+  // Cleanup abort controller on unmount
   useEffect(() => {
-    if (!loading || !activeSessionId) return;
-    const interval = setInterval(() => {
-      setPollTrigger((n) => n + 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [loading, activeSessionId]);
-
-
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   const copyToClipboard = useCallback((text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -79,6 +64,11 @@ export function QueryPanel({ kbId }: { kbId: string }) {
   };
 
   const handleSelectSession = (sessionId: string) => {
+    // Cancel any in-flight stream
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setActivity(null);
     setActiveSessionId(sessionId);
   };
 
@@ -103,38 +93,93 @@ export function QueryPanel({ kbId }: { kbId: string }) {
 
     setInput('');
     setLoading(true);
+    setActivity({ status: 'Starting...', tools: [] });
 
-    try {
-      // Backend saves user message + enqueues job, returns user message
-      const userMsg = await sendSessionMessage(kbId, sessionId, question);
-      setMessages((prev) => [...prev, userMsg]);
-      // Update session title if it was the first message
-      if (messages.length === 0) {
-        setSessions((prev) =>
-          prev.map((s) =>
-            s.id === sessionId
-              ? { ...s, title: question.length > 50 ? question.slice(0, 50) + '...' : question, updated_at: new Date().toISOString() }
-              : s
-          )
-        );
-      }
-      // Trigger polling to pick up agent response when it arrives
-      setPollTrigger((n) => n + 1);
-    } catch (e: any) {
+    // Optimistically add user message
+    const optimisticMsg: ChatMessage = {
+      id: `pending-${Date.now()}`,
+      session_id: sessionId,
+      role: 'user',
+      content: question,
+      metadata: null,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    // Update session title if first message
+    if (messages.length === 0) {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? { ...s, title: question.length > 50 ? question.slice(0, 50) + '...' : question, updated_at: new Date().toISOString() }
+            : s
+        )
+      );
+    }
+
+    const onEvent = (event: StreamEvent) => {
+      setActivity((prev) => {
+        if (!prev) return prev;
+        switch (event.type) {
+          case 'llm_start':
+            return { ...prev, status: 'Thinking...' };
+          case 'llm_end':
+            return { ...prev, status: event.tool_calls ? `Using ${event.tool_calls} tool${event.tool_calls > 1 ? 's' : ''}...` : 'Generating answer...' };
+          case 'tool_start':
+            return {
+              ...prev,
+              status: `Running ${event.name}...`,
+              tools: [...prev.tools, { name: event.name!, done: false }],
+            };
+          case 'tool_end':
+            return {
+              ...prev,
+              tools: prev.tools.map((t) =>
+                t.name === event.name && !t.done
+                  ? { ...t, done: true, duration_ms: event.duration_ms, is_error: event.is_error }
+                  : t
+              ),
+            };
+          default:
+            return prev;
+        }
+      });
+    };
+
+    const onDone = (result: StreamComplete) => {
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        session_id: sessionId!,
+        role: 'assistant',
+        content: result.answer,
+        metadata: {
+          reasoning_path: result.reasoning_path,
+          tools_used: result.tools_used,
+        },
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
       setLoading(false);
+      setActivity(null);
+      abortRef.current = null;
+    };
+
+    const onError = (error: string) => {
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
-        session_id: sessionId,
+        session_id: sessionId!,
         role: 'assistant',
-        content: `Error: ${e.message || 'Failed to send message'}`,
+        content: `Error: ${error}`,
         metadata: null,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      // loading state is managed by the polling effect —
-      // it clears when the assistant response arrives
-    }
+      setLoading(false);
+      setActivity(null);
+      abortRef.current = null;
+    };
+
+    abortRef.current = streamMessage(kbId, sessionId, question, onEvent, onDone, onError);
   };
 
   const formatDate = (dateStr: string) => {
@@ -278,10 +323,25 @@ export function QueryPanel({ kbId }: { kbId: string }) {
               )}
             </div>
           ))}
-          {loading && (
+          {loading && activity && (
             <div className="bg-[#111] border border-white/5 rounded-xl px-5 py-4 max-w-3xl">
               <p className="text-xs font-medium mb-2 text-white/30">Agent</p>
-              <p className="text-white/30 animate-pulse text-sm">Thinking...</p>
+              <p className="text-white/30 animate-pulse text-sm">{activity.status}</p>
+              {activity.tools.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {activity.tools.map((tool, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-white/25">
+                      <span className={tool.done ? (tool.is_error ? 'text-red-400/50' : 'text-green-400/50') : 'text-yellow-400/50 animate-pulse'}>
+                        {tool.done ? (tool.is_error ? '✗' : '✓') : '●'}
+                      </span>
+                      <span className="font-mono">{tool.name}</span>
+                      {tool.done && tool.duration_ms != null && (
+                        <span className="text-white/15">{tool.duration_ms}ms</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

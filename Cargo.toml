@@ -29,7 +29,7 @@ sqlx = { version = "0.8", features = [
 rust-s3 = { version = "0.35", features = ["tokio-rustls-tls"], default-features = false }
 
 # Agent
-metalcraft = { version = "0.4", features = ["rig"] }
+metalcraft = { path = "/home/andy/rust4ai/metalcraft", features = ["rig"] }
 rig = "0.36"
 
 # Serialization
@@ -61,6 +61,7 @@ thiserror = "2"
 
 # Async utilities
 async-trait = "0.1"
+async-stream = "0.3"
 futures = "0.3"
 
 [dev-dependencies]

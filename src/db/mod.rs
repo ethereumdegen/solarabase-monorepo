@@ -7,6 +7,7 @@ pub mod documents;
 pub mod folders;
 pub mod invitations;
 pub mod knowledgebases;
+pub mod llm_logs;
 pub mod page_indexes;
 pub mod subscriptions;
 pub mod users;

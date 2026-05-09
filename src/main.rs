@@ -214,6 +214,10 @@ async fn main() {
             "/api/kb/{kb_id}/sessions/{sid}/messages",
             post(controllers::chat_sessions::send_message),
         )
+        .route(
+            "/api/kb/{kb_id}/sessions/{sid}/stream",
+            post(controllers::chat_sessions::stream_message),
+        )
         // KB members (RBAC)
         .route(
             "/api/kb/{kb_id}/members",
@@ -268,6 +272,14 @@ async fn main() {
         .route(
             "/api/admin/audit-logs",
             get(controllers::admin::list_audit_logs),
+        )
+        .route(
+            "/api/admin/agent-logs",
+            get(controllers::admin::list_agent_logs),
+        )
+        .route(
+            "/api/admin/llm-logs",
+            get(controllers::admin::list_llm_logs),
         )
         // Invitations
         .route(

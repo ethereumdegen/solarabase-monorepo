@@ -5066,9 +5066,7 @@ dependencies = [
 
 [[package]]
 name = "metalcraft"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1701efe4fb6e8882ac10f793817ed8eba1d14e3ff661ee708817fa0c0c865a8"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -7479,6 +7477,7 @@ dependencies = [
 name = "solarabase"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "async-trait",
  "axum",
  "axum-extra",

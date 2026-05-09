@@ -14,6 +14,9 @@ import type {
   WikiPageDetail,
   KbMember,
   KbRole,
+  AgentLog,
+  LlmLog,
+  LlmStats,
 } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -204,9 +207,93 @@ export const sendSessionMessage = (kbId: string, sessionId: string, content: str
     body: JSON.stringify({ content }),
   });
 
+/** Stream a chat message via SSE. Returns an AbortController to cancel. */
+export function streamMessage(
+  kbId: string,
+  sessionId: string,
+  content: string,
+  onEvent: (event: StreamEvent) => void,
+  onDone: (result: StreamComplete) => void,
+  onError: (error: string) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  fetch(`/api/kb/${kbId}/sessions/${sessionId}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ content }),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const body = await res.text();
+        onError(body || res.statusText);
+        return;
+      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'complete') {
+                onDone(data as StreamComplete);
+              } else if (data.type === 'error') {
+                onError(data.message);
+              } else {
+                onEvent(data as StreamEvent);
+              }
+            } catch { /* ignore parse errors */ }
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      if (err.name !== 'AbortError') {
+        onError(err.message || 'Stream failed');
+      }
+    });
+
+  return controller;
+}
+
+export interface StreamEvent {
+  type: 'llm_start' | 'llm_end' | 'tool_start' | 'tool_end' | 'done' | 'error';
+  name?: string;
+  call_id?: string;
+  tool_calls?: number;
+  has_answer?: boolean;
+  is_error?: boolean;
+  duration_ms?: number;
+  answer?: string;
+  message?: string;
+}
+
+export interface StreamComplete {
+  type: 'complete';
+  answer: string;
+  reasoning_path: string[];
+  tools_used: string[];
+}
+
 // Admin
-export const adminListUsers = () => fetchJson<User[]>('/api/admin/users');
-export const adminListKbs = () => fetchJson<Knowledgebase[]>('/api/admin/kbs');
+export const adminListUsers = () => fetchJson<{ users: User[]; total: number }>('/api/admin/users');
+export const adminListKbs = () => fetchJson<{ kbs: Knowledgebase[]; total: number }>('/api/admin/kbs');
+export const adminListAgentLogs = (limit = 50, offset = 0) =>
+  fetchJson<{ jobs: AgentLog[]; total: number }>(`/api/admin/agent-logs?limit=${limit}&offset=${offset}`);
+export const adminListLlmLogs = (limit = 50, offset = 0) =>
+  fetchJson<{ logs: LlmLog[]; total: number; stats: LlmStats }>(`/api/admin/llm-logs?limit=${limit}&offset=${offset}`);
 
 // Invitations
 export const acceptInvite = (token: string) =>

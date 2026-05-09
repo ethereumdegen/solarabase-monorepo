@@ -9,4 +9,5 @@ pub mod invitation;
 pub mod knowledgebase;
 pub mod subscription;
 pub mod user;
+pub mod llm_log;
 pub mod wiki_page;

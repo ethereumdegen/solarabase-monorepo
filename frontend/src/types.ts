@@ -163,6 +163,44 @@ export type WikiPageDetail = WikiPage & {
   markdown: string;
 };
 
+export type AgentLog = {
+  id: string;
+  session_id: string;
+  kb_id: string;
+  owner_id: string;
+  status: string;
+  worker_id: string | null;
+  content: string;
+  error: string | null;
+  claimed_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LlmLog = {
+  id: string;
+  kb_id: string | null;
+  session_id: string | null;
+  request_type: string;
+  model: string;
+  input_chars: number;
+  output_chars: number;
+  latency_ms: number;
+  status: string;
+  error_msg: string | null;
+  created_at: string;
+};
+
+export type LlmStats = {
+  last_24h: {
+    total_calls: number;
+    total_input_chars: number;
+    total_output_chars: number;
+    avg_latency_ms: number;
+  };
+};
+
 export type Invitation = {
   id: string;
   kb_id: string;

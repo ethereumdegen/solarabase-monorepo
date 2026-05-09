@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use metalcraft::{
-    create_react_agent, AgentMessage, AgentState, CompiledGraph, Executor, GraphError,
-    Result as McResult, RunOutcome, Tool, ToolRegistry,
+    create_react_agent, AgentMessage, AgentState, CompiledGraph, EventReceiver, Executor,
+    GraphError, Result as McResult, RunOutcome, Tool, ToolRegistry, event_channel,
 };
 use rig::client::CompletionClient;
 use rig::providers::openai;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 use crate::db;
 use crate::models::chat_session::{ChatMessage, ChatRole};
 use crate::models::knowledgebase::Knowledgebase;
-use crate::services::llm::LlmClient;
+use crate::services::llm::{LlmClient, LlmContext};
 
 type BoxErr = Box<dyn std::error::Error + Send + Sync>;
 
@@ -613,7 +613,14 @@ impl RagAgent {
         let model = client.completion_model(&kb.model);
 
         let kb_id = kb.id;
-        let llm = Arc::new(LlmClient::new_with_model(api_key, &kb.model));
+        let llm = Arc::new(
+            LlmClient::new_with_model(api_key, &kb.model)
+                .with_logging(db.clone(), LlmContext {
+                    kb_id: Some(kb_id),
+                    session_id: None,
+                    request_type: "navigate_tree".to_string(),
+                }),
+        );
 
         // ~60% of 128k context for retrieved content, leaving room for
         // system prompt, history, and response generation
@@ -635,6 +642,28 @@ impl RagAgent {
         })
     }
 
+    /// Build an AgentState with conversation history.
+    fn build_state(&self, question: &str, history: &[ChatMessage]) -> AgentState {
+        if history.is_empty() {
+            return AgentState::new(question);
+        }
+        let first = &history[0];
+        let mut s = AgentState::new(&first.content);
+        for msg in &history[1..] {
+            match msg.role {
+                ChatRole::User => {
+                    s.messages.push(AgentMessage::User(msg.content.clone()));
+                }
+                ChatRole::Assistant => {
+                    s.messages.push(AgentMessage::Assistant(msg.content.clone()));
+                }
+            }
+        }
+        s.messages.push(AgentMessage::User(question.into()));
+        s.is_done = false;
+        s
+    }
+
     /// Query with conversation history injected into agent state.
     /// Prior messages become user/assistant turns so the LLM sees full context.
     pub async fn query_with_history(
@@ -644,32 +673,36 @@ impl RagAgent {
     ) -> Result<RagResponse, BoxErr> {
         self.token_budget.reset();
         let executor = Executor::new_from_arc(self.graph.clone()).max_steps(15);
-
-        let state = if history.is_empty() {
-            AgentState::new(question)
-        } else {
-            // Seed with first message, then append rest + current question
-            let first = &history[0];
-            let mut s = AgentState::new(&first.content);
-            for msg in &history[1..] {
-                match msg.role {
-                    ChatRole::User => {
-                        s.messages.push(AgentMessage::User(msg.content.clone()));
-                    }
-                    ChatRole::Assistant => {
-                        s.messages.push(AgentMessage::Assistant(msg.content.clone()));
-                    }
-                }
-            }
-            // Add the current question as the latest user message
-            s.messages.push(AgentMessage::User(question.into()));
-            s.is_done = false;
-            s
-        };
-
+        let state = self.build_state(question, history);
         let thread_id = format!("query-{}", Uuid::new_v4());
         let outcome = executor.run(state, &thread_id).await?;
         Self::extract_response(outcome)
+    }
+
+    /// Query with streaming events. Returns a receiver that yields events
+    /// during execution, plus a JoinHandle for the final RagResponse.
+    pub fn query_streaming(
+        &self,
+        question: &str,
+        history: &[ChatMessage],
+    ) -> (
+        EventReceiver,
+        tokio::task::JoinHandle<Result<RagResponse, BoxErr>>,
+    ) {
+        let (tx, rx) = event_channel(32);
+        self.token_budget.reset();
+
+        let state = self.build_state(question, history).with_events(tx);
+        let graph = self.graph.clone();
+
+        let handle = tokio::spawn(async move {
+            let executor = Executor::new_from_arc(graph).max_steps(15);
+            let thread_id = format!("query-{}", Uuid::new_v4());
+            let outcome = executor.run(state, &thread_id).await?;
+            Self::extract_response(outcome)
+        });
+
+        (rx, handle)
     }
 
     pub async fn query(&self, question: &str) -> Result<RagResponse, BoxErr> {
